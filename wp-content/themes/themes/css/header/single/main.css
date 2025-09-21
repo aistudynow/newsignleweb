@@ -234,28 +234,24 @@ input {
   position: fixed;
   inset: auto auto var(--rb-privacy-gap) var(--rb-privacy-gap);
   max-width: min(26rem, calc(100vw - var(--rb-privacy-gap) * 2));
-  display: block;
-  visibility: hidden;
+  display: none;
   margin: 0;
   padding: 0;
   opacity: 0;
   pointer-events: none;
   z-index: var(--rb-privacy-z, 2147483647);
   transform: translateY(10px);
-  transition: opacity .2s ease, transform .2s ease, visibility 0s linear .2s;
+  transition: opacity .2s ease, transform .2s ease;
   font-size: .875rem;
   line-height: 1.5;
   color: var(--privacy-color, #fff);
-  will-change: transform, opacity;
-  contain: layout paint;
 }
 
 .privacy-bar.activated {
-  visibility: visible;
+  display: block;
   opacity: 1;
   pointer-events: auto;
   transform: translateY(0);
-  transition-delay: 0s;
 }
 
 .privacy-bar.privacy-left {

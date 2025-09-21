@@ -1,0 +1,249 @@
+/*
+ * Author bio module styling extracted from the Foxiz single layout.
+ * Scoped to the `.usr-holder.entry-sec` wrapper to avoid leaking
+ * global resets into the rest of the page.
+ */
+
+.usr-holder.entry-sec {
+  --author-accent: #8224e3;
+  --author-accent-90: #8224e3e6;
+  --author-verified: #4caf50;
+  --author-text: #04102f;
+  --author-muted: #666666;
+  --author-border: rgba(136, 136, 136, 0.15);
+  --author-font: 'Manrope', 'Oxygen', Arial, Helvetica, sans-serif;
+  --author-meta-font: 'Manrope', 'Encode Sans Condensed', sans-serif;
+  --author-meta-weight: 400;
+  --author-meta-size: 13px;
+  --author-meta-transform: none;
+  --author-meta-spacing: normal;
+  --author-meta-strong-weight: 700;
+  --author-meta-strong-transform: uppercase;
+  --author-heading-size: 1.15em;
+  --author-bio-size: 0.92rem;
+  position: relative;
+  padding: 37px 0 35px;
+  font-family: var(--author-font);
+  color: var(--author-text);
+  background-color: #ffffff;
+}
+
+.usr-holder.entry-sec::before {
+  content: '';
+  position: absolute;
+  z-index: 1;
+  top: 0;
+  left: 0;
+  right: 0;
+  height: 3px;
+  background-image: linear-gradient(
+    to right,
+    var(--author-border) 20%,
+    transparent 21%,
+    transparent 100%
+  );
+  background-repeat: repeat-x;
+  background-position: 0 0;
+  background-size: 5px;
+}
+
+.usr-holder.entry-sec,
+.usr-holder.entry-sec * {
+  box-sizing: border-box;
+}
+
+.usr-holder .ubox {
+  position: relative;
+  display: block;
+}
+
+.usr-holder .ubox-header {
+  display: flex;
+  align-items: center;
+  flex-flow: row wrap;
+  gap: 10px;
+  width: 100%;
+}
+
+.usr-holder .author-info-wrap {
+  display: flex;
+  align-items: center;
+  flex-flow: row nowrap;
+  gap: 10px;
+  flex: 1 1 auto;
+}
+
+.usr-holder .author-avatar {
+  display: block;
+  width: 50px;
+  height: 50px;
+}
+
+.usr-holder .author-avatar img {
+  width: 100%;
+  height: 100%;
+  border-radius: 50%;
+  object-fit: cover;
+}
+
+.usr-holder .meta-text,
+.usr-holder .is-meta {
+  font-family: var(--author-meta-font);
+  font-size: var(--author-meta-size);
+  font-weight: var(--author-meta-weight);
+  letter-spacing: var(--author-meta-spacing);
+  text-transform: var(--author-meta-transform);
+  color: var(--author-muted);
+  display: inline-flex;
+  flex-direction: column;
+  gap: 0.25em;
+}
+
+.usr-holder .nname-info {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.35em;
+}
+
+.usr-holder .meta-author {
+  font-family: var(--author-meta-font);
+  font-weight: var(--author-meta-strong-weight);
+  text-transform: var(--author-meta-strong-transform);
+  color: var(--author-text);
+  display: inline-flex;
+  align-items: center;
+  gap: 0.35em;
+}
+
+.usr-holder .meta-author .meta-label {
+  font-weight: var(--author-meta-weight);
+  text-transform: var(--author-meta-transform);
+  color: var(--author-muted);
+  display: inline-flex;
+  gap: max(2px, 0.35em);
+}
+
+.usr-holder .is-meta a {
+  color: inherit;
+  text-decoration-line: underline;
+  text-decoration-style: solid;
+  text-decoration-color: transparent;
+  text-underline-offset: min(4px, 0.175em);
+  transition: color 0.2s cubic-bezier(0.32, 0.74, 0.57, 1),
+    text-decoration-color 0.2s cubic-bezier(0.32, 0.74, 0.57, 1);
+}
+
+.usr-holder .is-meta a:hover {
+  color: var(--author-accent);
+  text-decoration-color: currentColor;
+}
+
+.usr-holder .nice-name {
+  font-family: inherit;
+  font-size: 1em;
+  line-height: 1.2;
+  color: var(--author-text);
+  text-decoration: none;
+  text-underline-offset: min(4px, 0.175em);
+  transition: color 0.2s cubic-bezier(0.32, 0.74, 0.57, 1);
+}
+
+.usr-holder .nice-name:hover {
+  color: var(--author-accent);
+  text-decoration: underline solid;
+}
+
+.usr-holder .rbi {
+  display: inline-flex;
+  width: 1.1em;
+  height: 1.1em;
+  background-color: currentColor;
+  -webkit-mask: var(--author-icon) center/contain no-repeat;
+  mask: var(--author-icon) center/contain no-repeat;
+}
+
+.usr-holder .verified-tick {
+  width: 1.2em;
+  height: 1.2em;
+  margin-top: -0.3em;
+  color: var(--author-verified);
+  --author-icon: url("data:image/svg+xml,%3Csvg%20xmlns%3D%22http%3A//www.w3.org/2000/svg%22%20viewBox%3D%220%200%2024%2024%22%3E%3Cpath%20fill%3D%22none%22%20stroke%3D%22%23fff%22%20stroke-width%3D%222%22%20stroke-linecap%3D%22round%22%20stroke-linejoin%3D%22round%22%20d%3D%22M12%203a9%209%200%201%201%200%2018%209%209%200%200%201%200-18z%22/%3E%3Cpath%20fill%3D%22none%22%20stroke%3D%22%23fff%22%20stroke-width%3D%222%22%20stroke-linecap%3D%22round%22%20stroke-linejoin%3D%22round%22%20d%3D%22m9%2012%202%202%204-4%22/%3E%3C/svg%3E");
+}
+
+.usr-holder .usocials {
+  display: flex;
+  align-items: center;
+  flex-flow: row nowrap;
+  gap: 0.7em;
+  font-family: var(--author-meta-font);
+  font-size: var(--author-meta-size);
+  font-weight: var(--author-meta-weight);
+  letter-spacing: var(--author-meta-spacing);
+  text-transform: var(--author-meta-transform);
+  color: var(--author-muted);
+}
+
+.usr-holder .usocials .ef-label {
+  line-height: 1;
+  color: inherit;
+}
+
+.usr-holder .usocials a {
+  display: inline-flex;
+  align-items: center;
+  font-size: min(17px, 1rem);
+  padding: 0 2px;
+  color: inherit;
+  text-decoration: none;
+  transition: color 0.2s cubic-bezier(0.32, 0.74, 0.57, 1);
+}
+
+.usr-holder .rbi-link {
+  --author-icon: url("data:image/svg+xml,%3Csvg%20xmlns%3D%22http%3A//www.w3.org/2000/svg%22%20viewBox%3D%220%200%2024%2024%22%3E%3Cpath%20fill%3D%22none%22%20stroke%3D%22%23fff%22%20stroke-width%3D%222%22%20stroke-linecap%3D%22round%22%20stroke-linejoin%3D%22round%22%20d%3D%22M10.5%2013.5%208%2016a3%203%200%200%200%204.2%204.2L15%2017.4%22/%3E%3Cpath%20fill%3D%22none%22%20stroke%3D%22%23fff%22%20stroke-width%3D%222%22%20stroke-linecap%3D%22round%22%20stroke-linejoin%3D%22round%22%20d%3D%22M13.5%2010.5%2016%208a3%203%200%201%200-4.2-4.2L9%206.6%22/%3E%3Cpath%20fill%3D%22none%22%20stroke%3D%22%23fff%22%20stroke-width%3D%222%22%20stroke-linecap%3D%22round%22%20stroke-linejoin%3D%22round%22%20d%3D%22M8.5%2015.5%2015.5%208.5%22/%3E%3C/svg%3E");
+}
+
+.usr-holder .usocials a:hover {
+  color: var(--author-accent);
+  text-decoration: none;
+}
+
+.usr-holder .bio-description {
+  margin-top: 12px;
+  font-size: var(--author-bio-size);
+  color: var(--author-text);
+}
+
+.usr-holder .bio-description p {
+  margin: 0;
+}
+
+.usr-holder .author-avatar,
+.usr-holder .nice-name,
+.usr-holder .usocials a {
+  outline: none;
+}
+
+.usr-holder .author-avatar:focus-visible,
+.usr-holder .nice-name:focus-visible,
+.usr-holder .usocials a:focus-visible {
+  box-shadow: 0 0 0 3px rgba(130, 36, 227, 0.35);
+  border-radius: 999px;
+}
+
+@media (min-width: 768px) {
+  .usr-holder .nice-name {
+    font-size: var(--author-heading-size);
+  }
+}
+
+@media (max-width: 575px) {
+  .usr-holder .ubox-header {
+    flex-direction: column;
+    align-items: flex-start;
+  }
+
+  .usr-holder .usocials {
+    width: 100%;
+    justify-content: flex-start;
+  }
+}
