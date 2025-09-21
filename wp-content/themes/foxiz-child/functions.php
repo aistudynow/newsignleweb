@@ -1090,7 +1090,7 @@ function my_register_context_only_scripts(): void {
     $main          = 'https://aistudynow.com/wp-content/themes/js/main.js';
     $pagination_js = 'https://aistudynow.com/wp-content/themes/js/pagination.js';
     $comment       = 'https://aistudynow.com/wp-content/themes/js/comment.js';
-    $download      = 'https://aistudynow.com/wp-content/themes/js/download-form-validation.js';
+    $download      = 'https://aistudynow.com/wp-content/plugins/newsletter-11/assets/js/download-form-validation.js';
     $core_js       = 'https://aistudynow.com/wp-content/themes/js/core.js';
     $defer_js      = 'https://aistudynow.com/wp-content/themes/js/defer-css.js';
 
@@ -1272,7 +1272,7 @@ add_action( 'wp_print_footer_scripts', function (): void {
     global $wp_scripts;
     $printed = ( $wp_scripts && ! empty( $wp_scripts->done ) && in_array( 'foxiz-core', (array) $wp_scripts->done, true ) );
     if ( ! $printed ) {
-        echo '<script id="foxiz-core-js" src="https://aistudynow.com/wp-content/themes/js/core.js"></script>' . "\n";
+        echo '<script id="foxiz-core-js" src="https://aistudynow.com/wp-content/themes/js/core.js?ver=4.0.0"></script>' . "\n";
     }
 }, PHP_INT_MAX );
 
@@ -1283,6 +1283,12 @@ add_action( 'wp_print_footer_scripts', function (): void {
  * -------------------------------------------------------------------------
  */
 function vdoai_after_first_paragraph( string $content ): string {
+    static $vdoai_injected = false;
+
+    if ( $vdoai_injected ) {
+        return $content;
+    }
+
     if ( is_admin() || is_feed() || is_search() || is_archive() || is_front_page() || is_home() ) {
         return $content;
     }
@@ -1296,17 +1302,24 @@ function vdoai_after_first_paragraph( string $content ): string {
         return $content;
     }
 
-    $snippet  = '<div id="v-aistudynow" style="min-height:280px"></div>';
-    $snippet .= '<script src="https://a.vdo.ai/core/v-aistudynow/vdo.ai.js" id="vdoai-js" defer></script>';
+    $snippet = <<<'HTML'
+<div id="v-aistudynow"></div>
+<script data-cfasync="false">(function(v,d,o,ai){ai=d.createElement('script');ai.defer=true;ai.async=true;ai.src=v.location.protocol+o;d.head.appendChild(ai);})(window, document, '//a.vdo.ai/core/v-aistudynow/vdo.ai.js');</script>
+HTML;
 
     $closing_p = '</p>';
     $pos       = strpos( $content, $closing_p );
 
-    return ( false !== $pos )
+    $output = ( false !== $pos )
         ? substr( $content, 0, $pos + strlen( $closing_p ) ) . $snippet . substr( $content, $pos + strlen( $closing_p ) )
         : $content . $snippet;
+
+    $vdoai_injected = true;
+
+    return $output;
 }
 add_filter( 'the_content', 'vdoai_after_first_paragraph', 20 );
+
 
 add_action( 'wp_footer', function (): void {
     ?>
