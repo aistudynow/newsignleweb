@@ -378,6 +378,253 @@ var FOXIZ_CORE_SCRIPT = (function (Module) {
       });
     });
   };
+  
+ Module.lazyLoadScripts = function () {
+    var selectors = '[data-lazy-script-src]';
+    var placeholders = $all(selectors);
+    if (!placeholders.length) return;
+
+    var loadedAttr = 'lazyScriptLoaded';
+    var boundAttr = 'lazyScriptBound';
+    var observer = null;
+
+    function insertBeforeScript(scriptEl, html) {
+      if (!scriptEl || !html) return;
+      var parent = scriptEl.parentNode;
+      if (!parent) return;
+
+      var container = document.createElement('div');
+      container.innerHTML = html;
+
+      while (container.firstChild) {
+        var node = container.firstChild;
+        container.removeChild(node);
+
+        if (node.nodeType === 1 && node.tagName && node.tagName.toLowerCase() === 'script') {
+          var replacement = document.createElement('script');
+          for (var i = 0; i < node.attributes.length; i++) {
+            var attr = node.attributes[i];
+            replacement.setAttribute(attr.name, attr.value);
+          }
+
+          if (node.textContent) replacement.text = node.textContent;
+          if (replacement.src && !replacement.hasAttribute('async')) replacement.async = false;
+
+          parent.insertBefore(replacement, scriptEl);
+        } else {
+          parent.insertBefore(node, scriptEl);
+        }
+      }
+    }
+
+    function createDocumentWriteProxy(scriptEl) {
+      var doc = document;
+      if (!doc || typeof doc.write !== 'function') return null;
+
+      var originalWrite = doc.write;
+      var originalWriteln = doc.writeln;
+      var queue = [];
+
+      function flushQueue() {
+        if (!queue.length || !scriptEl || !scriptEl.parentNode) return;
+        for (var i = 0; i < queue.length; i++) insertBeforeScript(scriptEl, queue[i]);
+        queue.length = 0;
+      }
+
+      function handleWrite(content) {
+        if (!content) return;
+        if (scriptEl && scriptEl.parentNode) {
+          flushQueue();
+          insertBeforeScript(scriptEl, content);
+        } else {
+          queue.push(content);
+        }
+      }
+
+      doc.write = function (content) {
+        handleWrite(String(content));
+      };
+
+      doc.writeln = function (content) {
+        handleWrite(String(content) + '\n');
+      };
+
+      return {
+        flush: flushQueue,
+        release: function () {
+          flushQueue();
+          doc.write = originalWrite;
+          doc.writeln = originalWriteln;
+        }
+      };
+    }
+
+    function loadScript(el) {
+      if (!el || el.dataset[loadedAttr] === '1') return;
+
+      var src = el.getAttribute('data-lazy-script-src');
+      if (!src) return;
+
+      el.dataset[loadedAttr] = '1';
+
+      var script = document.createElement('script');
+      script.src = src;
+
+      var asyncAttr = el.getAttribute('data-lazy-script-async');
+      if (asyncAttr) {
+        var asyncValue = asyncAttr.toLowerCase();
+        script.async = !(asyncValue === 'false' || asyncValue === '0' || asyncValue === 'no');
+      } else {
+        script.async = true;
+      }
+
+      var deferAttr = el.getAttribute('data-lazy-script-defer');
+      if (deferAttr) {
+        var deferValue = deferAttr.toLowerCase();
+        if (deferValue !== 'false' && deferValue !== '0' && deferValue !== 'no') script.defer = true;
+      }
+
+      var scriptId = el.getAttribute('data-lazy-script-id');
+      if (scriptId && !document.getElementById(scriptId)) script.id = scriptId;
+
+      var targetSelector = el.getAttribute('data-lazy-script-target');
+      var anchor = null;
+      if (targetSelector) {
+        try { anchor = document.querySelector(targetSelector); }
+        catch (err) { anchor = null; }
+      }
+      if (!anchor) anchor = el;
+
+      var insertMode = (el.getAttribute('data-lazy-script-insert') || '').toLowerCase();
+      var inserted = false;
+
+      var docWriteProxy = createDocumentWriteProxy(script);
+      var releaseDocWrite = function () {
+        if (!docWriteProxy) return;
+        if (typeof docWriteProxy.flush === 'function') docWriteProxy.flush();
+        if (typeof docWriteProxy.release === 'function') docWriteProxy.release();
+        docWriteProxy = null;
+      };
+
+      script.addEventListener('load', releaseDocWrite);
+      script.addEventListener('error', releaseDocWrite);
+      script.addEventListener('abort', releaseDocWrite);
+
+      if (insertMode === 'append' && anchor && anchor.appendChild) {
+        anchor.appendChild(script);
+        inserted = true;
+      } else if (insertMode === 'prepend' && anchor && anchor.insertBefore) {
+        anchor.insertBefore(script, anchor.firstChild);
+        inserted = true;
+      } else if (insertMode === 'before' && anchor && anchor.parentNode) {
+        anchor.parentNode.insertBefore(script, anchor);
+        inserted = true;
+      } else if (insertMode === 'after' && anchor && anchor.parentNode) {
+        anchor.parentNode.insertBefore(script, anchor.nextSibling);
+        inserted = true;
+      } else if (insertMode === 'body' && document.body) {
+        document.body.appendChild(script);
+        inserted = true;
+      } else if (insertMode === 'head' && document.head) {
+        document.head.appendChild(script);
+        inserted = true;
+      }
+
+      if (!inserted) {
+        var parent = document.body || document.head || document.documentElement;
+        parent.appendChild(script);
+        inserted = true;
+      }
+
+      if (docWriteProxy && typeof docWriteProxy.flush === 'function' && inserted) {
+        window.setTimeout(docWriteProxy.flush, 0);
+      }
+
+      window.setTimeout(releaseDocWrite, 15000);
+    }
+
+    function scheduleFallback(el) {
+      var fallbackAttr = el.getAttribute('data-lazy-script-timeout');
+      var fallbackDelay = parseInt(fallbackAttr, 10);
+      if (isNaN(fallbackDelay) || fallbackDelay < 0) fallbackDelay = 10000;
+
+      window.setTimeout(function () { loadScript(el); }, fallbackDelay);
+    }
+
+    function queue(el) {
+      if (!el || el.dataset[boundAttr] === '1') return;
+      el.dataset[boundAttr] = '1';
+
+      if (observer) {
+        observer.observe(el);
+      } else {
+        var onReady = function () {
+          off(window, 'load', onReady);
+          var delayAttr = el.getAttribute('data-lazy-script-delay');
+          var delay = parseInt(delayAttr, 10);
+          var runner = function () { loadScript(el); };
+
+          if (!isNaN(delay) && delay > 0) {
+            window.setTimeout(runner, delay);
+          } else if ('requestIdleCallback' in window) {
+            requestIdleCallback(function () { loadScript(el); }, { timeout: 2000 });
+          } else {
+            window.setTimeout(runner, 400);
+          }
+        };
+
+        if (document.readyState === 'complete') onReady();
+        else on(window, 'load', onReady);
+      }
+
+      scheduleFallback(el);
+    }
+
+    if ('IntersectionObserver' in window) {
+      observer = new IntersectionObserver(function (entries) {
+        entries.forEach(function (entry) {
+          if (!entry.isIntersecting) return;
+
+          var target = entry.target;
+          observer.unobserve(target);
+
+          var delayAttr = target.getAttribute('data-lazy-script-delay');
+          var delay = parseInt(delayAttr, 10);
+          var execute = function () { loadScript(target); };
+
+          if (!isNaN(delay) && delay > 0) {
+            window.setTimeout(execute, delay);
+          } else if ('requestIdleCallback' in window) {
+            requestIdleCallback(function () { loadScript(target); }, { timeout: 2000 });
+          } else {
+            window.setTimeout(execute, 100);
+          }
+        });
+      }, { rootMargin: '200px 0px', threshold: 0 });
+    }
+
+    placeholders.forEach(queue);
+
+    if ('MutationObserver' in window) {
+      var mo = new MutationObserver(function (mutations) {
+        mutations.forEach(function (mutation) {
+          for (var i = 0; i < mutation.addedNodes.length; i++) {
+            var node = mutation.addedNodes[i];
+            if (!node || node.nodeType !== 1) continue;
+
+            if (node.hasAttribute && node.hasAttribute('data-lazy-script-src')) queue(node);
+
+            var nested = node.querySelectorAll ? node.querySelectorAll(selectors) : [];
+            for (var j = 0; j < nested.length; j++) queue(nested[j]);
+          }
+        });
+      });
+
+      mo.observe(document.body || document.documentElement, { childList: true, subtree: true });
+    }
+  };
+  
+  
 
   return Module;
 }(window.FOXIZ_CORE_SCRIPT || {}));
@@ -389,4 +636,3 @@ document.addEventListener('DOMContentLoaded', function () {
 window.addEventListener('load', function () {
   FOXIZ_CORE_SCRIPT.shareTrigger();
 });
-
