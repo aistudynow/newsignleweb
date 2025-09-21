@@ -1,0 +1,370 @@
+/*
+ * Related posts module styling extracted from the Foxiz theme.
+ * The rules are written so the block can be dropped into a standalone
+ * demo while still matching the typography and hover treatments that
+ * ship with the theme on production.
+ */
+
+:root {
+  --g-color: #8224e3;
+  --g-color-90: #8224e3e6;
+  --body-family: Manrope, Arial, Helvetica, sans-serif;
+  --body-fweight: 400;
+  --body-fcolor: #04102f;
+  --body-fsize: 18px;
+  --body-fspace: normal;
+  --body-fstyle: normal;
+  --body-fheight: 1.7;
+  --body-transform: none;
+  --solid-white: #ffffff;
+  --heading-family: Manrope;
+  --heading-fweight: 700;
+  --heading-transform: none;
+  --heading-color: var(--body-fcolor);
+  --heading-sub-color: var(--g-color);
+  --h4-family: Manrope;
+  --h4-fweight: 700;
+  --h4-fsize: 20px;
+  --h4-fspace: -0.05em;
+  --h4-transform: none;
+  --meta-family: Manrope;
+  --meta-fweight: 400;
+  --meta-fsize: 13px;
+  --meta-fspace: normal;
+  --meta-transform: none;
+  --meta-fcolor: #666666;
+  --flex-gray-15: rgba(136, 136, 136, 0.15);
+  --shadow-7: rgba(0, 0, 0, 0.07);
+  --round-3: 0px;
+  --round-5: 0px;
+  --hyperlink-color: #1e73be;
+  --hyperlink-line-color: #8224e3;
+  --hyperlink-style: italic;
+  --hyperlink-weight: 700;
+}
+
+html,
+body {
+  font-family: inherit;
+  font-size: 100%;
+  font-weight: inherit;
+  font-style: inherit;
+  line-height: inherit;
+  margin: 0;
+  padding: 0;
+  vertical-align: baseline;
+  border: 0;
+  outline: 0;
+  width: 100%;
+  max-width: 100%;
+  overflow-x: hidden;
+}
+
+html {
+  font-size: var(--body-fsize);
+  -ms-text-size-adjust: 100%;
+  -webkit-text-size-adjust: 100%;
+  text-size-adjust: 100%;
+}
+
+body {
+  --bottom-spacing: 20px;
+  --el-spacing: 7px;
+  font-family: var(--body-family);
+  font-size: var(--body-fsize);
+  font-weight: var(--body-fweight);
+  font-style: var(--body-fstyle);
+  line-height: max(var(--body-fheight, 1.7), 1.4);
+  letter-spacing: var(--body-fspace);
+  text-transform: var(--body-transform);
+  color: var(--body-fcolor);
+  background-color: var(--solid-white);
+}
+
+body:not([data-theme='dark']).single {
+  background-color: var(--s-body-bg, var(--solid-white));
+}
+
+@media (prefers-reduced-motion: no-preference) {
+  html {
+    scroll-behavior: smooth;
+  }
+}
+
+*,
+*::before,
+*::after {
+  box-sizing: border-box;
+}
+
+@media all {
+  div {
+    font-family: inherit;
+    font-size: 100%;
+    font-weight: inherit;
+    font-style: inherit;
+    line-height: inherit;
+    margin: 0;
+    padding: 0;
+    vertical-align: baseline;
+    border: 0;
+    outline: 0;
+  }
+
+  .e-ct-outer > * {
+    margin-bottom: 30px;
+  }
+}
+
+@media (min-width: 1025px) {
+  .e-ct-outer > * {
+    margin-bottom: 35px;
+  }
+}
+
+.grid-container > * {
+  flex: 0 0 100%;
+  width: 100%;
+  padding-right: 20px;
+  padding-left: 20px;
+}
+
+@media (min-width: 1025px) {
+  .grid-container > * {
+    padding-right: 30px;
+    padding-left: 30px;
+  }
+}
+
+@media (min-width: 992px) {
+  .grid-container > :nth-child(1) {
+    flex: 0 0 66.67%;
+    width: 66.67%;
+  }
+}
+
+.related-sec a {
+  color: inherit;
+  text-decoration: none;
+  transition: color var(--effect, 0.2s cubic-bezier(0.32, 0.74, 0.57, 1));
+}
+
+.related-sec a:hover,
+.related-sec a:focus {
+  color: var(--g-color);
+}
+
+.related-sec img {
+  display: block;
+  max-width: 100%;
+  height: auto;
+  object-fit: cover;
+}
+
+.related-sec {
+  position: relative;
+  z-index: 20;
+  display: block;
+  width: 100%;
+  padding: 20px;
+  border-radius: var(--round-5);
+  border: 1px solid var(--flex-gray-15);
+  background-color: var(--toc-bg, transparent);
+  box-shadow: 0 5px 30px var(--shadow-7), 3px 3px 0 var(--body-fcolor);
+  --related-spacing: 20px;
+}
+
+.related-sec.related-2 {
+  --related-spacing: 20px;
+}
+
+.related-sec .block-h {
+  margin-bottom: 20px;
+}
+
+.related-sec .heading-inner {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  width: 100%;
+}
+
+.related-sec .heading-title {
+  line-height: 1;
+  margin: 0;
+}
+
+.related-sec .heading-title span {
+  display: inline-flex;
+  align-items: center;
+  font-family: var(--heading-family, var(--h4-family));
+  font-size: var(--h4-fsize);
+  font-weight: var(--heading-fweight, var(--h4-fweight));
+  font-style: var(--h4-fstyle, normal);
+  letter-spacing: var(--h4-fspace);
+  text-transform: var(--heading-transform, var(--h4-transform));
+  color: var(--heading-color);
+}
+
+.related-sec .block-inner {
+  display: flex;
+  flex-direction: column;
+  row-gap: var(--related-spacing);
+}
+
+.related-sec .p-wrap {
+  position: relative;
+  width: 100%;
+}
+
+.related-sec .p-list-small-2 {
+  display: flex;
+  align-items: center;
+  gap: var(--featured-spacing, 15px);
+}
+
+.related-sec .p-list-small-2 + .p-list-small-2 {
+  padding-top: var(--related-spacing);
+  border-top: 1px solid var(--flex-gray-15);
+}
+
+.related-sec .feat-holder {
+  flex: 0 0 100px;
+  width: 100px;
+  max-width: 100%;
+}
+
+.related-sec .p-featured {
+  position: relative;
+  overflow: hidden;
+  display: block;
+  padding-bottom: calc(var(--feat-ratio, 75) * 1%);
+  border-radius: var(--wrap-border, var(--round-3));
+}
+
+.related-sec .p-featured img {
+  position: absolute;
+  inset: 0;
+  width: 100%;
+  height: 100%;
+  margin: 0;
+}
+
+.related-sec .p-content {
+  display: flex;
+  flex-direction: column;
+  gap: var(--el-spacing);
+  min-width: 0;
+}
+
+.related-sec .entry-title {
+  margin: 0;
+  font-family: var(--h4-family);
+  font-size: var(--h4-fsize);
+  font-weight: var(--h4-fweight);
+  font-style: var(--h4-fstyle, normal);
+  line-height: var(--h4-fheight, 1.45);
+  letter-spacing: var(--h4-fspace);
+  text-transform: var(--h4-transform);
+  color: var(--h4-fcolor, inherit);
+}
+
+.related-sec .p-url {
+  position: relative;
+  display: inline;
+  color: var(--title-color, inherit);
+  text-underline-offset: min(3px, 0.1em);
+  background-image: linear-gradient(
+    var(--title-e-hcolor, var(--g-color-90)),
+    var(--title-e-hcolor, var(--g-color-90))
+  );
+  background-repeat: no-repeat;
+  background-position: 0% 100%;
+  background-size: 100% 0%;
+  transition: color var(--effect, 0.2s cubic-bezier(0.32, 0.74, 0.57, 1)),
+    background-size 0.2s var(--timing, cubic-bezier(0.32, 0.74, 0.57, 1));
+}
+
+.related-sec .p-url:hover,
+.related-sec .p-url:focus {
+  color: var(--title-hcolor, currentColor);
+  background-size: 100% 30%;
+}
+
+.related-sec .p-meta {
+  margin: 0;
+  font-family: var(--meta-family);
+  font-size: var(--meta-fsize);
+  font-weight: var(--meta-fweight);
+  font-style: var(--meta-fstyle, normal);
+  letter-spacing: var(--meta-fspace);
+  text-transform: var(--meta-transform);
+  color: var(--meta-fcolor);
+}
+
+.related-sec .meta-inner {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 0.4em 1.1em;
+  align-items: center;
+}
+
+.related-sec .meta-el {
+  display: inline-flex;
+  align-items: center;
+  gap: max(2px, 0.35em);
+  text-transform: inherit;
+}
+
+.related-sec .meta-el:after {
+  display: none;
+}
+
+.related-sec time {
+  font-weight: 600;
+  color: inherit;
+}
+
+@media (max-width: 767px) {
+  body {
+    font-size: 15px;
+  }
+
+  .related-sec {
+    padding: 16px;
+    --related-spacing: 16px;
+  }
+
+  .related-sec .p-list-small-2 {
+    gap: 12px;
+  }
+
+  .related-sec .feat-holder {
+    flex-basis: 84px;
+    width: 84px;
+  }
+
+  .related-sec .entry-title {
+    font-size: calc(var(--h4-fsize) * 0.85);
+    line-height: 1.35;
+  }
+}
+
+@media (max-width: 479px) {
+  .related-sec {
+    padding: 14px;
+  }
+
+  .related-sec .block-h {
+    margin-bottom: 16px;
+  }
+
+  .related-sec .feat-holder {
+    flex-basis: 72px;
+    width: 72px;
+  }
+
+  .related-sec .p-list-small-2 {
+    gap: 10px;
+  }
+}

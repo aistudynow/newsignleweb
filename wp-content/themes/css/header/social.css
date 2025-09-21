@@ -1,0 +1,265 @@
+/*
+ * Social follower widget styles
+ * Mirrors Foxiz Elementor block locally with lightweight CSS.
+ */
+
+:root {
+  --social-card-radius: 18px;
+  --social-card-border: rgba(4, 16, 47, 0.08);
+  --social-card-shadow: 0 14px 30px rgba(4, 16, 47, 0.12);
+  --social-card-gap: clamp(12px, 2.2vw, 18px);
+  --ds-columns: 4;
+  --social-icon-size: 1.65rem;
+  --social-text-size: 0.95rem;
+  --social-meta-size: 0.82rem;
+  --social-transition: cubic-bezier(0.32, 0.74, 0.57, 1);
+  --facebook-color: #89abfc;
+  --facebook-hover: #1f82ec;
+  --instagram-color: #7e40b6;
+  --instagram-hover: #8823b6;
+  --youtube-color: #ef464b;
+  --youtube-hover: #fc161e;
+  --tiktok-color: #000000;
+  --tiktok-hover: #ff007f;
+}
+
+body[data-theme='dark'],
+body.dark-mode {
+  --social-card-border: rgba(148, 163, 184, 0.22);
+  --social-card-shadow: 0 20px 46px rgba(2, 6, 23, 0.46);
+}
+
+.elementor-element-61c9ab7 {
+  width: 100%;
+  max-width: 100%;
+  --s-columns: 4;
+  --s-icon-size: 15px;
+  --colgap: var(--social-card-gap);
+}
+
+.elementor-element-61c9ab7 .elementor-widget-container {
+  margin: 0;
+}
+
+.socials-counter {
+  display: block;
+  width: 100%;
+}
+
+.socials-counter .social-follower {
+  display: grid;
+  gap: var(--colgap, var(--social-card-gap));
+  grid-template-columns: repeat(var(--s-columns, var(--ds-columns, 4)), minmax(0, 1fr));
+}
+
+.socials-counter .follower-el {
+  position: relative;
+  transition: transform 0.35s var(--social-transition),
+    filter 0.35s var(--social-transition);
+}
+
+.socials-counter .follower-inner {
+  display: flex;
+  align-items: center;
+  gap: clamp(10px, 2vw, 16px);
+  padding: clamp(14px, 2.4vw, 20px);
+  position: relative;
+  border-radius: var(--social-card-radius);
+  border: 1px solid var(--social-card-border);
+  background: #ffffff;
+  box-shadow: var(--social-card-shadow);
+  color: var(--body-fcolor, #04102f);
+  transition: transform 0.35s var(--social-transition),
+    background-color 0.35s var(--social-transition),
+    box-shadow 0.35s var(--social-transition),
+    border-color 0.35s var(--social-transition);
+}
+
+.socials-counter.is-h-bg .follower-inner,
+.socials-counter.is-bg .follower-inner {
+  background: linear-gradient(135deg, rgba(255, 255, 255, 0.88), rgba(246, 248, 255, 0.88));
+}
+
+.socials-counter .follower-el a {
+  position: absolute;
+  inset: 0;
+  z-index: 1;
+}
+
+.socials-counter .follower-el a:focus-visible {
+  outline: none;
+}
+
+.socials-counter .follower-el a:focus-visible + .follower-inner {
+  transform: translateY(-6px);
+  color: var(--awhite, #ffffff);
+  border-color: transparent;
+  box-shadow: 0 16px 32px rgba(4, 16, 47, 0.18);
+  background: var(--s-icon-hcolor, var(--facebook-hover));
+}
+
+.socials-counter .follower-el a:focus-visible + .follower-inner::before {
+  opacity: 1;
+}
+
+.socials-counter .follower-el a:focus-visible + .follower-inner .fnicon,
+.socials-counter .follower-el a:focus-visible + .follower-inner .fnlabel,
+.socials-counter .follower-el a:focus-visible + .follower-inner .text-count {
+  color: var(--awhite, #ffffff);
+}
+
+.socials-counter .fnicon {
+  font-size: var(--social-icon-size);
+  line-height: 1;
+  color: var(--s-icon-color, var(--facebook-color));
+  text-shadow: 2px 2px 0 rgba(0, 0, 0, 0.08);
+}
+
+.socials-counter .fnlabel {
+  position: relative;
+  padding-inline-start: clamp(6px, 1.2vw, 12px);
+  font-family: var(--h6-family, inherit);
+  font-weight: var(--h6-fweight, 600);
+  font-size: var(--social-text-size);
+  white-space: nowrap;
+}
+
+.socials-counter .text-count {
+  margin-left: auto;
+  font-family: var(--meta-family, inherit);
+  font-size: var(--social-meta-size);
+  font-weight: var(--meta-fweight, 400);
+  color: var(--meta-fcolor, rgba(4, 16, 47, 0.62));
+  letter-spacing: var(--meta-fspace, normal);
+  transition: color 0.35s var(--social-transition);
+}
+
+.socials-counter .follower-inner::before {
+  content: '';
+  position: absolute;
+  inset: 0;
+  border-radius: inherit;
+  pointer-events: none;
+  opacity: 0;
+  background: radial-gradient(circle at top right, rgba(255, 255, 255, 0.35), transparent 55%);
+  transition: opacity 0.35s var(--social-transition);
+}
+
+.socials-counter .follower-inner span {
+  position: relative;
+  z-index: 1;
+}
+
+.socials-counter .follower-inner > :nth-child(2)::before {
+  content: '';
+  position: absolute;
+  top: 50%;
+  left: 0;
+  width: 1px;
+  height: 14px;
+  transform: translateY(-50%);
+  background: currentColor;
+  opacity: 0.4;
+}
+
+.socials-counter .follower-inner > :nth-child(2) {
+  padding-inline-start: clamp(8px, 1.6vw, 14px);
+}
+
+.socials-counter .follower-el:hover .follower-inner,
+.socials-counter .follower-el:focus-within .follower-inner {
+  transform: translateY(-6px);
+  color: var(--awhite, #ffffff);
+  border-color: transparent;
+  box-shadow: 0 16px 32px rgba(4, 16, 47, 0.18);
+}
+
+.socials-counter .follower-el:hover .follower-inner::before,
+.socials-counter .follower-el:focus-within .follower-inner::before {
+  opacity: 1;
+}
+
+.socials-counter .follower-el:hover .fnicon,
+.socials-counter .follower-el:focus-within .fnicon,
+.socials-counter .follower-el:hover .text-count,
+.socials-counter .follower-el:focus-within .text-count,
+.socials-counter .follower-el:hover .fnlabel,
+.socials-counter .follower-el:focus-within .fnlabel {
+  color: var(--awhite, #ffffff);
+}
+
+.socials-counter .fb-follower {
+  --s-icon-color: var(--facebook-color);
+  --s-icon-hcolor: var(--facebook-hover);
+}
+
+.socials-counter .instagram-follower {
+  --s-icon-color: var(--instagram-color);
+  --s-icon-hcolor: var(--instagram-hover);
+}
+
+.socials-counter .youtube-follower {
+  --s-icon-color: var(--youtube-color);
+  --s-icon-hcolor: var(--youtube-hover);
+}
+
+.socials-counter .tiktok-follower {
+  --s-icon-color: var(--tiktok-color);
+  --s-icon-hcolor: var(--tiktok-hover);
+}
+
+.socials-counter .fb-follower:hover .follower-inner,
+.socials-counter .fb-follower:focus-within .follower-inner {
+  background: var(--s-icon-hcolor);
+}
+
+.socials-counter .instagram-follower:hover .follower-inner,
+.socials-counter .instagram-follower:focus-within .follower-inner {
+  background: linear-gradient(135deg, #f77737 0%, var(--s-icon-hcolor) 55%, #833ab4 100%);
+}
+
+.socials-counter .youtube-follower:hover .follower-inner,
+.socials-counter .youtube-follower:focus-within .follower-inner {
+  background: linear-gradient(120deg, #ff6a6c, var(--s-icon-hcolor));
+}
+
+.socials-counter .tiktok-follower:hover .follower-inner,
+.socials-counter .tiktok-follower:focus-within .follower-inner {
+  background: linear-gradient(135deg, #25f4ee, var(--s-icon-hcolor));
+}
+
+.socials-counter .tiktok-follower .fnicon {
+  text-shadow: -2px -1px 0 #69c9d0, 2px 2px 0 #ee1d52;
+}
+
+.socials-counter .follower-el:focus-within {
+  outline: 2px solid var(--s-icon-hcolor);
+  outline-offset: 4px;
+}
+
+@media (max-width: 1024px) {
+  .elementor-element-61c9ab7 {
+    --s-columns: 2;
+  }
+}
+
+@media (max-width: 680px) {
+  .elementor-element-61c9ab7 {
+    --s-columns: 1;
+  }
+
+  .socials-counter .follower-inner {
+    justify-content: flex-start;
+  }
+
+  .socials-counter .follower-inner > :nth-child(2)::before {
+    height: 12px;
+  }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .socials-counter .follower-el,
+  .socials-counter .follower-inner {
+    transition: none;
+  }
+}

@@ -1,0 +1,170 @@
+/*
+ * Divider and heading styling for AI Study Now
+ * Mirrors the Foxiz look using lightweight, standalone CSS.
+ */
+
+:root {
+  --divider-accent: #5c29e9;
+  --divider-accent-strong: #4220d8;
+  --divider-length: clamp(160px, 32vw, 320px);
+  --divider-height: 12px;
+  --divider-wave-size: 24px;
+  --divider-gap: clamp(18px, 4vw, 28px);
+  --divider-heading-font: "Encode Sans Condensed", "Manrope", system-ui, sans-serif;
+  --divider-heading-color: #04102f;
+  --divider-heading-letter: -0.035em;
+  --divider-heading-shadow: 0 12px 24px rgba(4, 16, 47, 0.08);
+  --divider-tagline-font: "Manrope", system-ui, sans-serif;
+  --divider-tagline-color: rgba(4, 16, 47, 0.7);
+  --divider-tagline-bg: rgba(92, 41, 233, 0.08);
+  --divider-tagline-hover: rgba(92, 41, 233, 0.16);
+  --divider-tagline-radius: 999px;
+  --divider-tagline-letter: 0.08em;
+}
+
+body[data-theme="dark"],
+body.dark-mode {
+  --divider-heading-color: #f4f7ff;
+  --divider-heading-shadow: 0 12px 30px rgba(2, 6, 23, 0.4);
+  --divider-tagline-color: rgba(241, 245, 255, 0.82);
+  --divider-tagline-bg: rgba(92, 41, 233, 0.28);
+  --divider-tagline-hover: rgba(92, 41, 233, 0.42);
+}
+
+.elementor-widget-divider,
+.heading-layout-10 {
+  font-family: var(--divider-tagline-font);
+}
+
+.elementor-widget-divider .elementor-divider {
+  display: flex;
+  justify-content: center;
+  align-items: center;
+  padding-block: var(--divider-gap);
+  --divider-wave-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 24 24' preserveAspectRatio='none'%3E%3Cdefs%3E%3ClinearGradient id='wave' x1='0%25' x2='100%25' y1='50%25' y2='50%25'%3E%3Cstop offset='0%25' stop-color='%235c29e9'/%3E%3Cstop offset='100%25' stop-color='%234220d8'/%3E%3C/linearGradient%3E%3C/defs%3E%3Cpath d='M0,6c6,0,0.9,11.1,6.9,11.1S18,6,24,6' fill='none' stroke='url(%23wave)' stroke-width='5' stroke-linecap='square' stroke-miterlimit='10'/%3E%3C/svg%3E");
+}
+
+.elementor-widget-divider .elementor-divider-separator {
+  position: relative;
+  display: block;
+  width: var(--divider-length);
+  height: var(--divider-height);
+}
+
+.elementor-widget-divider .elementor-divider-separator::after {
+  content: "";
+  position: absolute;
+  inset: 0;
+  pointer-events: none;
+  background-repeat: repeat-x;
+  background-position: center;
+  background-size: var(--divider-wave-size) 100%;
+  background-image: var(--divider-wave-image);
+}
+
+/* Heading layout ------------------------------------------------------- */
+.heading-layout-10 {
+  margin-block: var(--divider-gap);
+}
+
+.heading-layout-10 .heading-inner {
+  display: flex;
+  align-items: flex-end;
+  justify-content: space-between;
+  gap: clamp(16px, 4vw, 36px);
+  flex-wrap: wrap;
+}
+
+.heading-layout-10 .heading-title {
+  margin: 0;
+  font-family: var(--divider-heading-font);
+  font-size: clamp(2rem, 1.6rem + 1.4vw, 3rem);
+  font-weight: 700;
+  line-height: 1.12;
+  letter-spacing: var(--divider-heading-letter);
+  color: var(--divider-heading-color);
+  text-transform: none;
+  text-shadow: var(--divider-heading-shadow);
+}
+
+.heading-layout-10 .heading-tagline {
+  display: none;
+}
+
+.heading-layout-10 .heading-tagline-label {
+  position: relative;
+  display: inline-flex;
+  align-items: center;
+  gap: 10px;
+  padding: 12px 22px;
+  border-radius: var(--divider-tagline-radius);
+  background: var(--divider-tagline-bg);
+  color: currentColor;
+  text-decoration: none;
+  transition: background 160ms ease, transform 160ms ease;
+}
+
+.heading-layout-10 .heading-tagline-label::after {
+  content: "\2192";
+  font-size: 1.1em;
+  line-height: 1;
+  transition: transform 160ms ease;
+}
+
+.heading-layout-10 .heading-tagline-label:hover,
+.heading-layout-10 .heading-tagline-label:focus-visible {
+  background: var(--divider-tagline-hover);
+  transform: translateY(-2px);
+}
+
+.heading-layout-10 .heading-tagline-label:hover::after,
+.heading-layout-10 .heading-tagline-label:focus-visible::after {
+  transform: translateX(3px);
+}
+
+:is(#uid_f73819f, #uid_2ec9ad9, #uid_32688d7, #uid_1b93ea2).heading-layout-10 .heading-inner {
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  gap: clamp(14px, 3vw, 24px);
+  text-align: center;
+}
+
+:is(#uid_f73819f, #uid_2ec9ad9, #uid_32688d7, #uid_1b93ea2) .heading-title,
+:is(#uid_f73819f, #uid_2ec9ad9, #uid_32688d7, #uid_1b93ea2) .heading-tagline {
+  text-align: center;
+}
+
+:is(#uid_f73819f, #uid_2ec9ad9, #uid_32688d7, #uid_1b93ea2) .heading-tagline {
+  justify-content: center;
+  width: 100%;
+}
+
+:is(#uid_f73819f, #uid_2ec9ad9, #uid_32688d7, #uid_1b93ea2) .heading-tagline-label {
+  margin-inline: auto;
+}
+
+@media (max-width: 768px) {
+  .heading-layout-10 .heading-inner {
+    flex-direction: column;
+    align-items: flex-start;
+    gap: clamp(12px, 4vw, 18px);
+    width: 100%;
+  }
+
+  .heading-layout-10 .heading-tagline {
+    justify-content: flex-start;
+    width: 100%;
+    align-self: stretch;
+  }
+
+  .heading-layout-10 .heading-title,
+  .heading-layout-10 .heading-tagline {
+    text-align: left;
+  }
+}
+
+@media (max-width: 480px) {
+  .elementor-widget-divider .elementor-divider-separator {
+    width: clamp(120px, 60vw, 220px);
+  }
