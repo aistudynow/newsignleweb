@@ -29,6 +29,29 @@ function wd4_should_defer_styles(): bool {
     return (bool) apply_filters( 'wd4_enable_deferred_styles', true );
 }
 
+
+function wd4_is_frontend_request(): bool {
+    if ( is_admin() ) {
+        return false;
+    }
+
+    if ( defined( 'REST_REQUEST' ) && REST_REQUEST ) {
+        return false;
+    }
+
+    if ( defined( 'DOING_CRON' ) && DOING_CRON ) {
+        return false;
+    }
+
+    if ( function_exists( 'wp_doing_ajax' ) && wp_doing_ajax() ) {
+        return false;
+    }
+
+    return true;
+}
+
+
+
 function wd4_get_inline_styles_map(): array {
     $map = array(
         'main'         => 'css/header/main.css',
@@ -78,7 +101,13 @@ function wd4_load_inline_stylesheet( string $relative_path ): string {
         return $cache[ $key ];
     }
 
-    $cache[ $key ] = trim( $contents );
+   $contents = trim( $contents );
+
+    if ( '' !== $contents && wd4_is_frontend_request() && wd4_should_lazy_load_icon_font() ) {
+        $contents = wd4_strip_ruby_icon_font_face( $contents );
+    }
+
+    $cache[ $key ] = $contents;
     return $cache[ $key ];
 }
 
@@ -299,40 +328,569 @@ function wd4_enqueue_defer_css_script(): void {
 }
 add_action( 'wp_enqueue_scripts', 'wd4_enqueue_defer_css_script', 200 );
 
-function wd4_add_resource_hints( array $urls, string $relation_type ): array {
-    if ( 'preconnect' !== $relation_type || ! wd4_should_defer_styles() ) {
+
+
+
+
+
+
+/**
+ * -------------------------------------------------------------------------
+ * Head cleanup and payload reduction
+ * -------------------------------------------------------------------------
+ */
+function wd4_disable_emojis(): void {
+    if ( ! wd4_is_frontend_request() ) {
+        return;
+    }
+
+    remove_action( 'wp_head', 'print_emoji_detection_script', 7 );
+    remove_action( 'wp_print_styles', 'print_emoji_styles' );
+    remove_action( 'wp_print_footer_scripts', 'print_emoji_detection_script' );
+    remove_action( 'embed_head', 'print_emoji_detection_script' );
+    remove_action( 'embed_print_styles', 'print_emoji_styles' );
+
+    remove_filter( 'the_content_feed', 'wp_staticize_emoji' );
+    remove_filter( 'comment_text_rss', 'wp_staticize_emoji' );
+    remove_filter( 'wp_mail', 'wp_staticize_emoji_for_email' );
+
+    add_filter( 'emoji_svg_url', '__return_false' );
+    add_filter( 'option_use_smilies', 'wd4_filter_disable_emojis_option' );
+}
+add_action( 'init', 'wd4_disable_emojis', 5 );
+
+function wd4_filter_disable_emojis_option(): string {
+    return '0';
+}
+
+function wd4_disable_emojis_tinymce( $plugins ) {
+    if ( ! wd4_is_frontend_request() ) {
+        return $plugins;
+    }
+
+    if ( ! is_array( $plugins ) ) {
+        return $plugins;
+    }
+
+    return array_diff( $plugins, array( 'wpemoji' ) );
+}
+add_filter( 'tiny_mce_plugins', 'wd4_disable_emojis_tinymce' );
+
+function wd4_remove_emoji_dns_prefetch( array $urls, string $relation_type ): array {
+    if ( 'dns-prefetch' !== $relation_type ) {
         return $urls;
     }
 
-    $origins = array(
-        'https://fonts.googleapis.com',
+    if ( ! wd4_is_frontend_request() ) {
+        return $urls;
+    }
+
+    $filtered = array();
+
+    foreach ( $urls as $url ) {
+        $href = wd4_get_hint_href( $url );
+
+        if ( '' === $href || false === strpos( $href, 's.w.org' ) ) {
+            $filtered[] = $url;
+        }
+    }
+
+    return $filtered;
+}
+add_filter( 'wp_resource_hints', 'wd4_remove_emoji_dns_prefetch', 9, 2 );
+
+function wd4_cleanup_head_links(): void {
+    if ( ! wd4_is_frontend_request() ) {
+        return;
+    }
+
+    $targets = apply_filters(
+        'wd4_head_cleanup_actions',
         array(
-            'href'        => 'https://fonts.gstatic.com',
-            'crossorigin' => 'anonymous',
-        ),
-        'https://cloudflare.com',
+            array( 'wp_head', 'feed_links_extra', 3 ),
+            array( 'wp_head', 'feed_links', 2 ),
+            array( 'wp_head', 'rsd_link', 10 ),
+            array( 'wp_head', 'wlwmanifest_link', 10 ),
+            array( 'wp_head', 'wp_generator', 10 ),
+            array( 'wp_head', 'wp_shortlink_wp_head', 10 ),
+            array( 'wp_head', 'adjacent_posts_rel_link_wp_head', 10 ),
+        )
     );
 
-    foreach ( $origins as $origin ) {
-        $href    = is_array( $origin ) ? $origin['href'] : $origin;
-        $present = false;
+    foreach ( $targets as $target ) {
+        if ( ! is_array( $target ) || count( $target ) < 2 ) {
+            continue;
+        }
 
-        foreach ( $urls as $url ) {
-            $url_href = is_array( $url ) ? $url['href'] : $url;
-            if ( $url_href === $href ) {
-                $present = true;
-                break;
+        $hook     = $target[0];
+        $callback = $target[1];
+        $priority = $target[2] ?? 10;
+        $args     = $target[3] ?? 0;
+
+        remove_action( $hook, $callback, $priority, $args );
+    }
+}
+add_action( 'init', 'wd4_cleanup_head_links', 8 );
+
+function wd4_disable_wp_embed(): void {
+    if ( ! wd4_is_frontend_request() ) {
+        return;
+    }
+
+    if ( ! apply_filters( 'wd4_disable_wp_embed', true ) ) {
+        return;
+    }
+
+    remove_action( 'wp_head', 'wp_oembed_add_discovery_links' );
+    remove_action( 'wp_head', 'rest_output_link_wp_head', 10 );
+    remove_action( 'template_redirect', 'rest_output_link_header', 11 );
+    remove_action( 'wp_head', 'wp_oembed_add_host_js' );
+
+    add_action( 'wp_enqueue_scripts', 'wd4_deregister_wp_embed', 100 );
+}
+add_action( 'init', 'wd4_disable_wp_embed', 9 );
+
+function wd4_deregister_wp_embed(): void {
+    wp_deregister_script( 'wp-embed' );
+}
+
+function wd4_get_hint_href( $hint ): string {
+    if ( is_array( $hint ) && isset( $hint['href'] ) ) {
+        return trim( (string) $hint['href'] );
+    }
+
+    if ( is_string( $hint ) ) {
+        return trim( $hint );
+    }
+
+    return '';
+}
+
+function wd4_extract_origin( string $url ): string {
+    $parts = wp_parse_url( $url );
+
+    if ( empty( $parts['scheme'] ) || empty( $parts['host'] ) ) {
+        return '';
+    }
+
+    $origin = strtolower( $parts['scheme'] . '://' . $parts['host'] );
+
+    if ( isset( $parts['port'] ) ) {
+        $origin .= ':' . $parts['port'];
+    }
+
+    return $origin;
+}
+
+function wd4_normalize_resource_hint_entry( $entry ): array {
+    if ( is_array( $entry ) ) {
+        $href = wd4_get_hint_href( $entry );
+        if ( '' === $href ) {
+            return array();
+        }
+
+        $normalized = array( 'href' => $href );
+
+        if ( isset( $entry['as'] ) ) {
+            $as = trim( (string) $entry['as'] );
+            if ( '' !== $as ) {
+                $normalized['as'] = $as;
             }
         }
 
-        if ( ! $present ) {
-            $urls[] = $origin;
+        if ( isset( $entry['type'] ) ) {
+            $type = trim( (string) $entry['type'] );
+            if ( '' !== $type ) {
+                $normalized['type'] = $type;
+            }
+        }
+
+        if ( isset( $entry['crossorigin'] ) ) {
+            $crossorigin = strtolower( trim( (string) $entry['crossorigin'] ) );
+            if ( in_array( $crossorigin, array( 'anonymous', 'use-credentials' ), true ) ) {
+                $normalized['crossorigin'] = $crossorigin;
+            }
+        }
+
+        return $normalized;
+    }
+
+    $href = wd4_get_hint_href( $entry );
+    if ( '' === $href ) {
+        return array();
+    }
+
+    return array( 'href' => $href );
+}
+
+function wd4_merge_resource_hints( array $urls, array $candidates ): array {
+    if ( empty( $candidates ) ) {
+        return $urls;
+    }
+
+    $known = array();
+    foreach ( $urls as $url ) {
+        $href = wd4_get_hint_href( $url );
+        if ( '' !== $href ) {
+            $known[ $href ] = true;
+        }
+    }
+
+    foreach ( $candidates as $candidate ) {
+        $entry = wd4_normalize_resource_hint_entry( $candidate );
+        if ( empty( $entry['href'] ) ) {
+            continue;
+        }
+
+        if ( isset( $known[ $entry['href'] ] ) ) {
+            continue;
+        }
+
+        $known[ $entry['href'] ] = true;
+
+        if ( 1 === count( $entry ) ) {
+            $urls[] = $entry['href'];
+        } else {
+            $urls[] = $entry;
         }
     }
 
     return $urls;
 }
+
+function wd4_filter_out_resource_hints( array $urls, array $candidates ): array {
+    if ( empty( $urls ) || empty( $candidates ) ) {
+        return $urls;
+    }
+
+    $remove = array();
+    foreach ( $candidates as $candidate ) {
+        $entry = wd4_normalize_resource_hint_entry( $candidate );
+        if ( empty( $entry['href'] ) ) {
+            continue;
+        }
+
+        $remove[ $entry['href'] ] = true;
+    }
+
+    if ( empty( $remove ) ) {
+        return $urls;
+    }
+
+    $filtered = array();
+    foreach ( $urls as $url ) {
+        $href = wd4_get_hint_href( $url );
+        if ( '' !== $href && isset( $remove[ $href ] ) ) {
+            continue;
+        }
+
+        $filtered[] = $url;
+    }
+
+    return $filtered;
+}
+
+function wd4_get_icon_font_url(): string {
+    $url = 'https://aistudynow.com/wp-content/themes/foxiz/assets/fonts/icons.woff2?ver=2.5.0';
+
+    /**
+     * Allow customization of the icon font preload URL.
+     */
+    return (string) apply_filters( 'wd4_icon_font_url', $url );
+}
+
+function wd4_should_lazy_load_icon_font(): bool {
+    $default = true;
+
+    if ( is_admin() ) {
+        $default = false;
+    } elseif ( function_exists( 'wp_doing_ajax' ) && wp_doing_ajax() ) {
+        $default = false;
+    } elseif ( function_exists( 'is_customize_preview' ) && is_customize_preview() ) {
+        $default = false;
+    }
+
+    return (bool) apply_filters( 'wd4_lazy_icon_font', $default );
+}
+
+function wd4_strip_ruby_icon_font_face( string $css ): string {
+    if ( '' === $css || false === stripos( $css, 'ruby-icon' ) ) {
+        return $css;
+    }
+
+    $pattern = '#@font-face\s*\{[^{}]*?font-family\s*:\s*(?:"|\')ruby-icon(?:"|\')[^{}]*\}#i';
+    $cleaned = preg_replace( $pattern, '', $css );
+
+    if ( null === $cleaned ) {
+        return $css;
+    }
+
+    return trim( $cleaned );
+}
+
+function wd4_get_icon_font_face_css( string $url ): string {
+    if ( '' === $url ) {
+        return '';
+    }
+
+    $css = sprintf(
+        "@font-face{font-family:'ruby-icon';font-style:normal;font-weight:400;font-display:swap;src:url('%s') format('woff2');}",
+        esc_url_raw( $url )
+    );
+
+    /**
+     * Filter the inline @font-face declaration used by the lazy loader.
+     */
+    return (string) apply_filters( 'wd4_icon_font_face_css', $css, $url );
+}
+
+function wd4_should_preload_icon_font(): bool {
+    $default = wd4_should_lazy_load_icon_font() ? false : true;
+
+    return (bool) apply_filters( 'wd4_preload_icon_font', $default );
+}
+
+function wd4_output_icon_font_preload(): void {
+    if ( ! wd4_is_frontend_request() ) {
+        return;
+    }
+
+    if ( wd4_should_lazy_load_icon_font() ) {
+        return;
+    }
+
+    if ( ! wd4_should_preload_icon_font() ) {
+        return;
+    }
+
+    $href = trim( wd4_get_icon_font_url() );
+    if ( '' === $href ) {
+        return;
+    }
+
+    $home_origin   = wd4_extract_origin( home_url( '/' ) );
+    $font_origin   = wd4_extract_origin( $href );
+    $needs_cross   = $font_origin && $font_origin !== $home_origin;
+    $cross_attr    = $needs_cross ? " crossorigin='anonymous'" : '';
+    $preload_attrs = sprintf(
+        " rel='preload' href='%s' as='font' type='font/woff2'%s fetchpriority='low'",
+        esc_url( $href ),
+        $cross_attr
+    );
+
+    printf( '<link%s>%s', $preload_attrs, "\n" );
+}
+add_action( 'wp_head', 'wd4_output_icon_font_preload', 4 );
+
+function wd4_output_lazy_icon_font_loader(): void {
+    if ( ! wd4_is_frontend_request() ) {
+        return;
+    }
+
+    if ( ! wd4_should_lazy_load_icon_font() ) {
+        return;
+    }
+
+    $href = trim( wd4_get_icon_font_url() );
+    if ( '' === $href ) {
+        return;
+    }
+
+    $font_face = wd4_get_icon_font_face_css( $href );
+    if ( '' === $font_face ) {
+        return;
+    }
+
+    $css_json = wp_json_encode( $font_face );
+    if ( ! $css_json ) {
+        return;
+    }
+
+    $script = sprintf(
+        '(function(){var css=%1$s,family="ruby-icon";if(document.fonts&&document.fonts.check&&document.fonts.check("1em "+family)){return;}var inject=function(){if(document.getElementById("wd4-icon-font-face")){return;}var style=document.createElement("style");style.id="wd4-icon-font-face";style.textContent=css;(document.head||document.documentElement).appendChild(style);if(document.fonts&&document.fonts.load){document.fonts.load("1em "+family);}};var schedule=window.requestIdleCallback?function(cb){requestIdleCallback(cb,{timeout:1200});}:function(cb){setTimeout(cb,120);};var kickoff=function(){schedule(inject);};if(document.readyState==="loading"){document.addEventListener("DOMContentLoaded",kickoff,{once:true});}else{kickoff();}})();',
+        $css_json
+    );
+
+    printf( "<script id='wd4-icon-font-loader'>%s</script>\n", $script );
+}
+add_action( 'wp_footer', 'wd4_output_lazy_icon_font_loader', 5 );
+
+function wd4_output_icon_font_noscript(): void {
+    if ( ! wd4_is_frontend_request() ) {
+        return;
+    }
+
+    if ( ! wd4_should_lazy_load_icon_font() ) {
+        return;
+    }
+
+    $href = trim( wd4_get_icon_font_url() );
+    if ( '' === $href ) {
+        return;
+    }
+
+    $font_face = wd4_get_icon_font_face_css( $href );
+    if ( '' === $font_face ) {
+        return;
+    }
+
+    printf( "<noscript id='wd4-icon-font-fallback'><style>%s</style></noscript>\n", $font_face );
+}
+add_action( 'wp_footer', 'wd4_output_icon_font_noscript', 6 );
+
+function wd4_collect_preconnect_origins(): array {
+    static $cache = null;
+
+    if ( null !== $cache ) {
+        return $cache;
+    }
+
+    if ( is_admin() || is_feed() ) {
+        $cache = array();
+        return $cache;
+    }
+
+    if ( function_exists( 'wp_doing_ajax' ) && wp_doing_ajax() ) {
+        $cache = array();
+        return $cache;
+    }
+
+    if ( function_exists( 'is_amp_endpoint' ) && is_amp_endpoint() ) {
+        $cache = array();
+        return $cache;
+    }
+
+    $origins     = array();
+    $home_origin = wd4_extract_origin( home_url( '/' ) );
+
+    if ( $home_origin ) {
+        $origins[] = $home_origin;
+    }
+
+    $ads_enabled = function_exists( 'wd4_are_ads_enabled' ) ? wd4_are_ads_enabled() : true;
+
+    if ( $ads_enabled ) {
+        $origins[] = array(
+            'href'        => 'https://pagead2.googlesyndication.com',
+            'crossorigin' => 'anonymous',
+        );
+        $origins[] = array(
+            'href'        => 'https://googleads.g.doubleclick.net',
+            'crossorigin' => 'anonymous',
+        );
+        $origins[] = array(
+            'href'        => 'https://securepubads.g.doubleclick.net',
+            'crossorigin' => 'anonymous',
+        );
+        $origins[] = array(
+            'href'        => 'https://imasdk.googleapis.com',
+            'crossorigin' => 'anonymous',
+        );
+    }
+
+    if ( is_singular( array( 'post', 'page' ) ) ) {
+        $origins[] = array(
+            'href'        => 'https://a.vdo.ai',
+            'crossorigin' => 'anonymous',
+        );
+        $origins[] = array(
+            'href'        => 'https://targeting.vdo.ai',
+            'crossorigin' => 'anonymous',
+        );
+    }
+
+    $origins[] = 'https://fonts.googleapis.com';
+    $origins[] = array(
+        'href'        => 'https://fonts.gstatic.com',
+        'crossorigin' => 'anonymous',
+    );
+
+    if ( wd4_should_defer_styles() ) {
+        $origins[] = 'https://cloudflare.com';
+    }
+
+    $icon_font_url    = wd4_get_icon_font_url();
+    $icon_font_origin = $icon_font_url ? wd4_extract_origin( $icon_font_url ) : '';
+
+    if ( $icon_font_origin ) {
+        if ( $icon_font_origin === $home_origin ) {
+            $origins[] = $icon_font_origin;
+        } else {
+            $origins[] = array(
+                'href'        => $icon_font_origin,
+                'crossorigin' => 'anonymous',
+            );
+        }
+    }
+
+    $origins = apply_filters( 'wd4_preconnect_origins', $origins );
+
+    $normalized = array();
+    foreach ( (array) $origins as $origin ) {
+        $entry = wd4_normalize_resource_hint_entry( $origin );
+        if ( empty( $entry['href'] ) ) {
+            continue;
+        }
+
+        $normalized[ $entry['href'] ] = $entry;
+    }
+
+    $cache = array_values( $normalized );
+
+    return $cache;
+}
+
+function wd4_output_preconnect_links(): void {
+    $origins = wd4_collect_preconnect_origins();
+
+    if ( empty( $origins ) ) {
+        return;
+    }
+
+    foreach ( $origins as $origin ) {
+        $href        = $origin['href'];
+        $crossorigin = isset( $origin['crossorigin'] ) ? sprintf( " crossorigin='%s'", esc_attr( $origin['crossorigin'] ) ) : '';
+
+        printf( "<link rel='preconnect' href='%s'%s>\n", esc_url( $href ), $crossorigin );
+    }
+}
+add_action( 'wp_head', 'wd4_output_preconnect_links', 3 );
+
+function wd4_add_resource_hints( array $urls, string $relation_type ): array {
+    if ( is_admin() ) {
+        return $urls;
+    }
+
+    if ( is_feed() ) {
+        return $urls;
+    }
+
+    if ( function_exists( 'wp_doing_ajax' ) && wp_doing_ajax() ) {
+        return $urls;
+    }
+
+    if ( function_exists( 'is_amp_endpoint' ) && is_amp_endpoint() ) {
+        return $urls;
+    }
+
+    if ( 'preconnect' === $relation_type ) {
+        $urls = wd4_filter_out_resource_hints( $urls, wd4_collect_preconnect_origins() );
+    }
+
+    if ( 'preload' === $relation_type ) {
+        $urls = wd4_filter_out_resource_hints( $urls, array( wd4_get_icon_font_url() ) );
+    }
+
+    return $urls;
+}
 add_filter( 'wp_resource_hints', 'wd4_add_resource_hints', 10, 2 );
+
+
+
+
+
+
+
 /**
  * -------------------------------------------------------------------------
  * Ad visibility toggles and helpers
@@ -913,19 +1471,7 @@ add_action( 'wp_enqueue_scripts', function (): void {
     wp_add_inline_style( 'asn-adsense-placement', implode( ' ', $snippets ) );
 }, 20 );
 
-add_action( 'wp_head', function (): void {
-    if ( is_admin() || is_feed() ) {
-        return;
-    }
-    if ( function_exists( 'is_amp_endpoint' ) && is_amp_endpoint() ) {
-        return;
-    }
-    if ( ! wd4_are_ads_enabled() ) {
-        return;
-    }
-    echo "<link rel='preconnect' href='https://pagead2.googlesyndication.com'>\n";
-    echo "<link rel='preconnect' href='https://googleads.g.doubleclick.net'>\n";
-}, 4 );
+
 
 add_action( 'wp_head', function (): void {
     if ( is_admin() || is_feed() ) {
@@ -1197,6 +1743,24 @@ JS,
 }
 add_action( 'wp_enqueue_scripts', 'my_register_context_only_scripts', 20 );
 
+
+function wd4_mark_core_script_deferred(): void {
+    if ( is_admin() ) {
+        return;
+    }
+
+    if ( function_exists( 'wp_doing_ajax' ) && wp_doing_ajax() ) {
+        return;
+    }
+
+    if ( function_exists( 'wp_script_add_data' ) && wp_script_is( 'foxiz-core', 'registered' ) ) {
+        wp_script_add_data( 'foxiz-core', 'defer', true );
+    }
+}
+add_action( 'wp_enqueue_scripts', 'wd4_mark_core_script_deferred', 40 );
+
+
+
 function my_disable_all_js_except_whitelisted(): void {
     if ( is_admin() || wp_doing_ajax() ) {
         return;
@@ -1260,8 +1824,22 @@ add_filter( 'script_loader_tag', function ( string $tag, string $handle, string 
         return $tag;
     }
     $allowed = my_get_allowed_js_handles_by_context( $context );
-    return in_array( $handle, $allowed, true ) ? $tag : '';
+    if ( ! in_array( $handle, $allowed, true ) ) {
+        return '';
+    }
+
+    if ( 'foxiz-core' === $handle && false === stripos( $tag, ' defer' ) ) {
+        $updated = preg_replace( '/<script\s+/i', '<script defer ', $tag, 1 );
+        if ( null !== $updated ) {
+            $tag = $updated;
+        } else {
+            $tag = str_replace( '<script', '<script defer', $tag );
+        }
+    }
+
+    return $tag;
 }, PHP_INT_MAX, 3 );
+
 
 add_action( 'wp_print_footer_scripts', function (): void {
     $context = my_detect_view_context();
@@ -1272,7 +1850,7 @@ add_action( 'wp_print_footer_scripts', function (): void {
     global $wp_scripts;
     $printed = ( $wp_scripts && ! empty( $wp_scripts->done ) && in_array( 'foxiz-core', (array) $wp_scripts->done, true ) );
     if ( ! $printed ) {
-        echo '<script id="foxiz-core-js" src="https://aistudynow.com/wp-content/themes/js/core.js?ver=4.0.0"></script>' . "\n";
+        echo '<script defer id="foxiz-core-js" src="https://aistudynow.com/wp-content/themes/js/core.js?ver=4.0.0"></script>' . "\n";
     }
 }, PHP_INT_MAX );
 
