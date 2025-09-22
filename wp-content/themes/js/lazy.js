@@ -81,6 +81,10 @@
     }
 
     function buildYoutubeThumb(id) {
+        return id ? 'https://i.ytimg.com/vi/' + id + '/maxresdefault.jpg' : '';
+    }
+
+    function buildYoutubeFallbackThumb(id) {
         return id ? 'https://i.ytimg.com/vi/' + id + '/hqdefault.jpg' : '';
     }
 
@@ -311,7 +315,10 @@
                 facade.setAttribute('aria-label', 'Play video');
             }
 
-            var thumbWrap = doc.createElement('span');
+             
+
+
+              var thumbWrap = doc.createElement('span');
             thumbWrap.className = 'yt-facade__thumb';
             var thumbImg = doc.createElement('img');
             thumbImg.src = buildYoutubeThumb(videoId);
@@ -320,7 +327,44 @@
             thumbImg.alt = '';
             thumbImg.setAttribute('aria-hidden', 'true');
             thumbImg.draggable = false;
+            var fallbackThumb = buildYoutubeFallbackThumb(videoId);
+            if (fallbackThumb && fallbackThumb !== thumbImg.src) {
+                var handleThumbError;
+                var handleThumbLoad;
+                var switchToFallback = function () {
+                    if (thumbImg.dataset.ytFallback === '1') {
+                        return;
+                    }
+                    thumbImg.dataset.ytFallback = '1';
+                    thumbImg.src = fallbackThumb;
+                    thumbImg.removeEventListener('error', handleThumbError);
+                    thumbImg.removeEventListener('load', handleThumbLoad);
+                };
+                handleThumbError = function () {
+                    switchToFallback();
+                };
+                handleThumbLoad = function () {
+                    if (thumbImg.dataset.ytFallback === '1') {
+                        thumbImg.removeEventListener('load', handleThumbLoad);
+                        return;
+                    }
+                    if ((thumbImg.naturalHeight && thumbImg.naturalHeight <= 90) ||
+                        (thumbImg.naturalWidth && thumbImg.naturalWidth <= 160)) {
+                        switchToFallback();
+                    }
+                };
+                thumbImg.addEventListener('error', handleThumbError);
+                thumbImg.addEventListener('load', handleThumbLoad);
+            }
+
+
+
+
+
             thumbWrap.appendChild(thumbImg);
+
+
+
 
             var playIcon = doc.createElement('span');
             playIcon.className = 'yt-facade__icon';
