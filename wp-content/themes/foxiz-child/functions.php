@@ -1902,12 +1902,12 @@ function my_detect_view_context(): string {
 
 function my_get_allowed_js_handles_by_context( string $context ): array {
     $allowed = array(
-        'home'     => array( 'main', 'pagination', 'wd-defer-css' ),
-        'category' => array( 'main', 'pagination', 'wd-defer-css' ),
+        'home'     => array( 'main', 'pagination', 'lazy', 'wd-defer-css' ),
+        'category' => array( 'main', 'pagination', 'lazy', 'wd-defer-css' ),
         'search'   => array(),
         'author'   => array(),
-        'post'     => array( 'comment', 'download', 'main', 'pagination', 'foxiz-core', 'wd-defer-css' ),
-        'page'     => array( 'comment', 'download', 'main', 'pagination', 'foxiz-core', 'wd-defer-css' ),
+        'post'     => array( 'comment', 'download', 'main', 'lazy', 'pagination', 'foxiz-core', 'wd-defer-css' ),
+        'page'     => array( 'comment', 'download', 'main', 'lazy', 'pagination', 'foxiz-core', 'wd-defer-css' ),
         'other'    => array(),
     );
 
@@ -1921,6 +1921,7 @@ function my_register_context_only_scripts(): void {
     $context = my_detect_view_context();
 
     $main          = 'https://aistudynow.com/wp-content/themes/js/main.js';
+    $lazy          = 'https://aistudynow.com/wp-content/themes/js/lazy.js';
     $pagination_js = 'https://aistudynow.com/wp-content/themes/js/pagination.js';
     $comment       = 'https://aistudynow.com/wp-content/themes/js/comment.js';
     $download      = 'https://aistudynow.com/wp-content/plugins/newsletter-11/assets/js/download-form-validation.js';
@@ -2021,7 +2022,8 @@ JS,
 
     if ( in_array( $context, array( 'post', 'page' ), true ) ) {
         wp_enqueue_script( 'comment', $comment, array(), '1.0.0', true );
-        wp_enqueue_script( 'main', $main, array(), '6.0.0', true );
+        wp_enqueue_script( 'main', $main, array(), '679.0.0', true );
+        wp_enqueue_script( 'lazy', $lazy, array(), '18.0.0', true );
         wp_enqueue_script( 'pagination', $pagination_js, array(), '5.0.1', true );
         wp_enqueue_script( 'download', $download, array(), '1.0.0', true );
         wp_enqueue_script( 'foxiz-core', $core_js, array(), '1.0.0', true );
