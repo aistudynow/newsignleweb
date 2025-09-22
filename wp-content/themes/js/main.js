@@ -444,7 +444,20 @@ var FOXIZ_MAIN_SCRIPT = (function (Module) {
           wrapper.remove();
         }
       }
-@@ -204,84 +455,183 @@ var FOXIZ_MAIN_SCRIPT = (function (Module) {
+
+  });
+  };
+
+  Module.optimizeGalleries = function (container) {
+    if (!container) return;
+    container.querySelectorAll('figure.wp-block-gallery').forEach((gallery) => {
+      gallery.classList.add('optimized-gallery');
+      gallery.querySelectorAll(':scope > figure').forEach((nested) => {
+
+
+
+
+
         if (nested.querySelector('figcaption')) return;
         const media = nested.querySelector('img, video, iframe');
         if (!media) return;
@@ -628,7 +641,45 @@ var FOXIZ_MAIN_SCRIPT = (function (Module) {
       const unmountList = () => {
         if (!activeList) return;
         activeList.remove();
-@@ -327,66 +677,66 @@ var FOXIZ_MAIN_SCRIPT = (function (Module) {
+        activeList = null;
+      };
+
+      const toggleList = (forceOpen) => {
+        const shouldOpen = typeof forceOpen === 'boolean'
+          ? forceOpen
+          : !activeList;
+        if (!shouldOpen) {
+          unmountList();
+          button.setAttribute('aria-expanded', 'false');
+          button.textContent = showLabel;
+          return;
+        }
+        const block = mountList();
+        if (!block) return;
+        button.setAttribute('aria-expanded', 'true');
+        button.textContent = hideLabel;
+      };
+
+      on(button, 'click', () => toggleList());
+      holder.appendChild(button);
+
+      if (cfg.autoOpen && typeof cfg.autoOpen === 'function' && cfg.autoOpen()) {
+        toggleList(true);
+      }
+    });
+  };
+
+  Module.reserveImageSpace = function () {
+    const selectors = [
+      '.entry-content img',
+      '.featured-lightbox-trigger img',
+      '.single-featured img',
+    ];
+
+    const applyAspect = (img, width, height) => {
+      if (!img || !width || !height) return;
+      if (!img.style.aspectRatio) {
+        img.style.aspectRatio = `${width} / ${height}`;
       }
       img.dataset.aspectReserved = 'true';
     };
@@ -650,7 +701,7 @@ var FOXIZ_MAIN_SCRIPT = (function (Module) {
           applyAspect(img, img.naturalWidth, img.naturalHeight);
         }
       };
-      img.addEventListener('load', onLoad, { once: true });
+      on(img, 'load', onLoad, { once: true });
     };
 
     selectors.forEach((selector) => {
@@ -695,7 +746,13 @@ var FOXIZ_MAIN_SCRIPT = (function (Module) {
     const shouldOpen = typeof forceOpen === 'boolean'
       ? forceOpen
       : store.button.getAttribute('aria-expanded') !== 'true';
-@@ -398,275 +748,719 @@ var FOXIZ_MAIN_SCRIPT = (function (Module) {
+
+      if (!shouldOpen) {
+      if (store.current) {
+        store.current.remove();
+        store.current = null;
+      }
+
       }
       store.button.setAttribute('aria-expanded', 'false');
       store.button.textContent = `Show ${store.header}`;
