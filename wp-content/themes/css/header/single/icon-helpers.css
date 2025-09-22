@@ -1,0 +1,41 @@
+/*!
+ * Lightweight helpers to ensure the Foxiz icon font renders reliably.
+ */
+:root {
+    --wd4-icon-size: 1em;
+}
+
+.ruby-icon,
+[class^="ruby-icon-"],
+[class*=" ruby-icon-"] {
+    font-family: 'ruby-icon';
+    font-style: normal;
+    font-weight: 400;
+    font-variant: normal;
+    text-transform: none;
+    line-height: 1;
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    -webkit-font-smoothing: antialiased;
+    -moz-osx-font-smoothing: grayscale;
+    speak: never;
+}
+
+.ruby-icon::before,
+[class^="ruby-icon-"]::before,
+[class*=" ruby-icon-"]::before {
+    font-family: inherit;
+    font-style: inherit;
+    font-weight: inherit;
+    line-height: inherit;
+}
+
+.ruby-icon[data-icon]::before {
+    content: attr(data-icon);
+}
+
+.ruby-icon {
+    min-width: var(--wd4-icon-size);
+    min-height: var(--wd4-icon-size);
+}
