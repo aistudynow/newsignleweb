@@ -331,83 +331,64 @@ function wd4_build_lcp_preload_tag( array $data ): string {
 }
 
 
-function wd4_prepare_lcp_preload_from_attachment( int $attachment_id, $size = 'full' ): array {
-    $attachment_id = wd4_to_positive_int( $attachment_id );
+if ( ! function_exists( 'wd4_prepare_lcp_preload_from_attachment' ) ) {
+    function wd4_prepare_lcp_preload_from_attachment( int $attachment_id, $size = 'full' ): array {
+        $attachment_id = wd4_to_positive_int( $attachment_id );
 
-    if ( $attachment_id <= 0 ) {
-        return array();
+        if ( $attachment_id <= 0 ) {
+            return array();
+        }
+
+        $src = wp_get_attachment_image_url( $attachment_id, $size );
+
+        if ( ! $src ) {
+            return array();
+        }
+
+        $data = array(
+            'src'    => (string) $src,
+            'srcset' => function_exists( 'wp_get_attachment_image_srcset' ) ? (string) wp_get_attachment_image_srcset( $attachment_id, $size ) : '',
+            'sizes'  => function_exists( 'wp_get_attachment_image_sizes' ) ? (string) wp_get_attachment_image_sizes( $attachment_id, $size ) : '',
+            'type'   => wd4_guess_image_mime_from_url( (string) $src ),
+        );
+
+        return $data;
     }
-
-    $src = wp_get_attachment_image_url( $attachment_id, $size );
-
-    if ( ! $src ) {
-        return array();
-    }
-
-    $data = array(
-        'src'    => (string) $src,
-        'srcset' => function_exists( 'wp_get_attachment_image_srcset' ) ? (string) wp_get_attachment_image_srcset( $attachment_id, $size ) : '',
-        'sizes'  => function_exists( 'wp_get_attachment_image_sizes' ) ? (string) wp_get_attachment_image_sizes( $attachment_id, $size ) : '',
-        'type'   => wd4_guess_image_mime_from_url( (string) $src ),
-    );
-
-    return $data;
 }
 
-function wd4_get_leading_archive_thumbnail_id(): int {
-    if ( is_singular() ) {
-        return wd4_get_main_post_thumbnail_id();
-    }
+if ( ! function_exists( 'wd4_get_leading_archive_thumbnail_id' ) ) {
+    function wd4_get_leading_archive_thumbnail_id(): int {
+        if ( is_singular() ) {
+            return wd4_get_main_post_thumbnail_id();
+        }
 
-    global $wp_query;
+        global $wp_query;
 
-    if ( ! ( $wp_query instanceof WP_Query ) ) {
-        return 0;
-    }
+        if ( ! ( $wp_query instanceof WP_Query ) ) {
+            return 0;
+        }
 
-    if ( empty( $wp_query->posts ) ) {
-        return 0;
-    }
+        if ( empty( $wp_query->posts ) ) {
+            return 0;
+        }
 
-    foreach ( (array) $wp_query->posts as $post ) {
-        if ( $post instanceof WP_Post ) {
-            $thumbnail_id = get_post_thumbnail_id( $post );
-            $thumbnail_id = wd4_to_positive_int( $thumbnail_id );
+        foreach ( (array) $wp_query->posts as $post ) {
+            if ( $post instanceof WP_Post ) {
+                $thumbnail_id = get_post_thumbnail_id( $post );
+                $thumbnail_id = wd4_to_positive_int( $thumbnail_id );
 
-            if ( $thumbnail_id > 0 ) {
-                return $thumbnail_id;
+                if ( $thumbnail_id > 0 ) {
+                    return $thumbnail_id;
+                }
             }
         }
-    }
 
-    return 0;
+        return 0;
+    }
 }
 
 
 
-
-function wd4_prepare_lcp_preload_from_attachment( int $attachment_id, $size = 'full' ): array {
-    $attachment_id = wd4_to_positive_int( $attachment_id );
-
-    if ( $attachment_id <= 0 ) {
-        return array();
-    }
-
-    $src = wp_get_attachment_image_url( $attachment_id, $size );
-
-    if ( ! $src ) {
-        return array();
-    }
-
-    $data = array(
-        'src'    => (string) $src,
-        'srcset' => function_exists( 'wp_get_attachment_image_srcset' ) ? (string) wp_get_attachment_image_srcset( $attachment_id, $size ) : '',
-        'sizes'  => function_exists( 'wp_get_attachment_image_sizes' ) ? (string) wp_get_attachment_image_sizes( $attachment_id, $size ) : '',
-        'type'   => wd4_guess_image_mime_from_url( (string) $src ),
-    );
-
-    return $data;
-}
 
 
 
@@ -2605,8 +2586,8 @@ function wd4_enqueue_styles(): void {
     if ( is_singular( 'post' ) ) {
         wp_enqueue_style( 'main',        'https://aistudynow.com/wp-content/themes/css/header/main.css',               array(), '77779999880.0' );
         wp_enqueue_style( 'icon',        'https://aistudynow.com/wp-content/themes/css/header/single/icon-helpers.css', array(), '77779999880.0' );
-        wp_enqueue_style( 'single',      'https://aistudynow.com/wp-content/themes/css/header/single/single.css',      array(), '87667876655777999980.0' );
-        wp_enqueue_style( 'sidebar',     'https://aistudynow.com/wp-content/themes/css/header/single/sidebar.css',     array(), '667876655777999980.0' );
+        wp_enqueue_style( 'single',      'https://aistudynow.com/wp-content/themes/css/header/single/single.css',      array(), '887667876655777999980.0' );
+        wp_enqueue_style( 'sidebar',     'https://aistudynow.com/wp-content/themes/css/header/single/sidebar.css',     array(), '8667876655777999980.0' );
         wp_enqueue_style( 'email',       'https://aistudynow.com/wp-content/themes/css/header/single/email.css',       array(), '667876655777999980.0' );
         wp_enqueue_style( 'download',    'https://aistudynow.com/wp-content/themes/css/header/single/download.css',    array(), '667876655777999980.0' );
         wp_enqueue_style( 'sharesingle', 'https://aistudynow.com/wp-content/themes/css/header/single/sharesingle.css', array(), '667876655777999980.0' );
