@@ -225,6 +225,29 @@ body {
   box-sizing: border-box;
 }
 
+
+
+.wd4-archive-summary__more {
+    display: inline-flex;
+    align-items: center;
+    gap: 0.35rem;
+    font-weight: 600;
+    color: var(--g-color, #ff184e);
+    text-decoration: none;
+}
+
+.wd4-archive-summary__more::after {
+    content: '\203A';
+    font-size: 0.85em;
+    transform: translateY(-1px);
+}
+
+.wd4-archive-summary__more:hover,
+.wd4-archive-summary__more:focus {
+    color: var(--g-color, #ff184e);
+    text-decoration: underline;
+}
+
 @media (min-width: 992px) {
   .grid-container {
     flex-flow: row nowrap;
