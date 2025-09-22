@@ -121,7 +121,117 @@ var FOXIZ_MAIN_SCRIPT = (function (Module) {
 
 
 
+  const hasBlockDescendant = (el) => {
+    return !!(
+      el &&
+      el.querySelector(
+        'div, figure, table, ul, ol, blockquote, pre, section, article, aside'
+      )
+    );
+  };
 
+  const normalizeCaptionText = (el) => {
+    return el
+      ? el.textContent
+          .replace(/\s+/g, ' ')
+          .trim()
+      : '';
+  };
+
+  const isCaptionParagraph = (el) => {
+    if (!el || el.tagName !== 'P') return false;
+    if (el.closest('figcaption')) return false;
+    if (hasBlockDescendant(el)) return false;
+    const text = normalizeCaptionText(el);
+    if (!text) return false;
+    if (/^(share|more\s+read|related)/i.test(text)) return false;
+    return true;
+  };
+
+  const isCaptionTitle = (el) => {
+    if (!isCaptionParagraph(el)) return false;
+    const html = el.innerHTML.trim();
+    if (!(html.startsWith('<strong') || html.startsWith('<b'))) return false;
+    const words = normalizeCaptionText(el).split(/\s+/).filter(Boolean);
+    if (words.length < 2) return false;
+    return true;
+  };
+
+  const isCaptionDescription = (el) => {
+    if (!isCaptionParagraph(el)) return false;
+    const text = normalizeCaptionText(el);
+    if (text.length < 25 && !/[.?!:]/.test(text)) return false;
+    if (/^download/i.test(text)) return false;
+    return true;
+  };
+
+  const takeSiblingParagraphs = (start, direction, predicate, maxCount) => {
+    const nodes = [];
+    if (!start) return nodes;
+    let current =
+      direction === 'previous'
+        ? start.previousElementSibling
+        : start.nextElementSibling;
+    while (
+      current &&
+      current.tagName === 'P' &&
+      predicate(current) &&
+      nodes.length < maxCount
+    ) {
+      nodes.push(current);
+      current =
+        direction === 'previous'
+          ? current.previousElementSibling
+          : current.nextElementSibling;
+    }
+    return direction === 'previous' ? nodes.reverse() : nodes;
+  };
+
+  let captionStyleInjected = false;
+  const ensureCaptionStyles = () => {
+    if (captionStyleInjected) return;
+    captionStyleInjected = true;
+    const style = document.createElement('style');
+    style.id = 'wd-entry-caption-style';
+    style.textContent = `
+.entry-content figure.has-inline-caption {
+  margin: 0 0 2.25rem;
+}
+.entry-content figure.has-inline-caption figcaption.inline-figure-caption {
+  margin-top: 0.75rem;
+  font-size: 0.95rem;
+  line-height: 1.6;
+  color: var(--body-fcolor, #282828);
+  opacity: 0.85;
+}
+.entry-content figure.has-inline-caption figcaption.inline-figure-caption strong:first-child {
+  display: block;
+  margin-bottom: 0.35rem;
+}
+.entry-content figure.workflow-columns-figure {
+  display: grid;
+  gap: 1rem;
+  margin: 0 0 2.5rem;
+}
+.entry-content figure.workflow-columns-figure.columns-count-2 {
+  grid-template-columns: repeat(auto-fit, minmax(220px, 1fr));
+}
+.entry-content figure.workflow-columns-figure.columns-count-3,
+.entry-content figure.workflow-columns-figure.columns-count-4 {
+  grid-template-columns: repeat(auto-fit, minmax(180px, 1fr));
+}
+.entry-content figure.workflow-columns-figure > img,
+.entry-content figure.workflow-columns-figure > video,
+.entry-content figure.workflow-columns-figure > iframe {
+  width: 100%;
+  height: auto;
+}
+.entry-content figure.workflow-columns-figure figcaption.inline-figure-caption {
+  grid-column: 1 / -1;
+  margin: 0;
+}`;
+    document.head.appendChild(style);
+  };
 
 
 
@@ -222,10 +332,11 @@ var FOXIZ_MAIN_SCRIPT = (function (Module) {
     });
   };
 
-  Module.flattenMediaFigures = function (container) {
+ Module.flattenMediaFigures = function (container) {
     if (!container) return;
     container.querySelectorAll('figure').forEach((figure) => {
       if (figure.classList.contains('wp-block-gallery')) return;
+      if (figure.dataset && figure.dataset.wdInlineCaption === '1') return;
       if (figure.querySelector('figcaption')) return;
       const media = figure.querySelector('img, video, iframe');
       if (!media) return;
@@ -235,6 +346,109 @@ var FOXIZ_MAIN_SCRIPT = (function (Module) {
       figure.replaceWith(media);
     });
   };
+
+
+
+ Module.mergeEntryCaptions = function (container) {
+    if (!container) return;
+
+    const appendCaption = (figure, nodes) => {
+      if (!nodes.length) return false;
+      const parts = nodes
+        .map((node) => {
+          const html = node.innerHTML.trim();
+          node.remove();
+          return html;
+        })
+        .filter(Boolean);
+      if (!parts.length) return false;
+      ensureCaptionStyles();
+      let figcaption = figure.querySelector(':scope > figcaption');
+      if (!figcaption) {
+        figcaption = document.createElement('figcaption');
+        figure.appendChild(figcaption);
+      }
+      figcaption.classList.add('inline-figure-caption');
+      const existing = figcaption.innerHTML.trim();
+      const addition = parts.join('<br>');
+      figcaption.innerHTML = existing ? `${existing}<br>${addition}` : addition;
+      figure.classList.add('has-inline-caption');
+      figure.dataset.wdInlineCaption = '1';
+      return true;
+    };
+
+    const convertColumns = (columns) => {
+      const mediaNodes = [];
+      columns.querySelectorAll('figure').forEach((nested) => {
+        const media = nested.querySelector('img, video, iframe');
+        if (!media) return;
+        liftChild(media, nested);
+        if (media.parentElement === nested) {
+          transferPresentation(nested, media);
+          nested.replaceWith(media);
+        }
+      });
+      columns.querySelectorAll('img, video, iframe').forEach((media) => {
+        mediaNodes.push(media);
+      });
+      if (!mediaNodes.length) return;
+
+      ensureCaptionStyles();
+      const titleNodes = takeSiblingParagraphs(
+        columns,
+        'previous',
+        (p) => isCaptionTitle(p),
+        2
+      );
+      const captionParts = titleNodes.map((node) => {
+        const html = node.innerHTML.trim();
+        node.remove();
+        return html;
+      }).filter(Boolean);
+
+      const figure = document.createElement('figure');
+      figure.classList.add('workflow-columns-figure');
+      figure.dataset.wdInlineCaption = '1';
+      const count = mediaNodes.length;
+      figure.classList.add(`columns-count-${Math.min(count, 4)}`);
+      columns.parentElement.insertBefore(figure, columns);
+      mediaNodes.forEach((media) => {
+        figure.appendChild(media);
+      });
+      columns.remove();
+
+      if (captionParts.length) {
+        const figcaption = document.createElement('figcaption');
+        figcaption.classList.add('inline-figure-caption');
+        figcaption.innerHTML = captionParts.join('<br>');
+        figure.appendChild(figcaption);
+        figure.classList.add('has-inline-caption');
+      }
+    };
+
+    Array.from(container.querySelectorAll(':scope > .wp-block-columns')).forEach(convertColumns);
+
+    Array.from(container.querySelectorAll(':scope > figure')).forEach((figure) => {
+      if (figure.dataset && figure.dataset.wdInlineCaption === '1') return;
+      const previous = takeSiblingParagraphs(
+        figure,
+        'previous',
+        (p) => isCaptionTitle(p) || isCaptionDescription(p),
+        2
+      );
+      const next = takeSiblingParagraphs(
+        figure,
+        'next',
+        (p) => isCaptionDescription(p),
+        2
+      );
+      appendCaption(figure, previous.concat(next));
+    });
+  };
+
+
+
+  
 
   Module.deferShareBlocks = function () {
     const module = this;
@@ -500,6 +714,7 @@ var FOXIZ_MAIN_SCRIPT = (function (Module) {
       this.removeEmptyParagraphs(entry);
       this.flattenEmbedWrappers(entry);
       this.optimizeGalleries(entry);
+      this.mergeEntryCaptions(entry);
       this.flattenMediaFigures(entry);
     }
     this.deferShareBlocks();
