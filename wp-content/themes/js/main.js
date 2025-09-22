@@ -45,7 +45,11 @@ var FOXIZ_MAIN_SCRIPT = (function (Module) {
   })();
 
   const $  = (sel, ctx) => (ctx || document).querySelector(sel);
-  const $$ = (sel, ctx) => Array.from((ctx || document).querySelectorAll(sel));
+
+
+
+
+   const $$ = (sel, ctx) => Array.from((ctx || document).querySelectorAll(sel));
   const on  = (el, ev, fn, opts) => el && el.addEventListener(ev, fn, opts || false);
   const off = (el, ev, fn) => el && el.removeEventListener(ev, fn);
 
@@ -69,6 +73,50 @@ var FOXIZ_MAIN_SCRIPT = (function (Module) {
   const toggle = (el, cls, force) => el && el.classList.toggle(cls, force);
   const show   = (el) => { if (el) el.style.display = ''; };
   const hide   = (el) => { if (el) el.style.display = 'none'; };
+
+  let UID = 0;
+  const nextID = (prefix) => `${prefix}-${++UID}`;
+
+  const liftChild = (child, stopAt) => {
+    if (!child) return;
+    let current = child.parentElement;
+    while (current && current !== stopAt) {
+      if (current.childElementCount !== 1) break;
+      const parent = current.parentElement;
+      if (!parent) break;
+      parent.insertBefore(child, current);
+      current.remove();
+      current = child.parentElement;
+    }
+  };
+
+  const transferPresentation = (fromEl, toEl) => {
+    if (!fromEl || !toEl) return;
+    fromEl.classList.forEach((cls) => {
+      if (!toEl.classList.contains(cls)) toEl.classList.add(cls);
+    });
+    Array.from(fromEl.attributes).forEach((attr) => {
+      if (attr.name === 'class') return;
+      if (attr.name === 'style') {
+        const existing = toEl.getAttribute('style') || '';
+        toEl.setAttribute('style', `${attr.value};${existing}`.trim());
+      } else if (attr.name === 'id') {
+        if (!toEl.id) toEl.id = attr.value;
+      } else if (!toEl.hasAttribute(attr.name)) {
+        toEl.setAttribute(attr.name, attr.value);
+      }
+    });
+  };
+
+  const isEmptyParagraph = (el) => {
+    if (!el || el.tagName !== 'P') return false;
+    if (el.querySelector('img, video, iframe, svg, object, embed')) return false;
+    const html = el.innerHTML
+      .replace(/<br\s*\/?>(\s|&nbsp;|\u00A0)*/gi, '')
+      .replace(/&nbsp;/gi, '')
+      .trim();
+    return html === '';
+  };
 
 
 
@@ -95,40 +143,7 @@ var FOXIZ_MAIN_SCRIPT = (function (Module) {
     el.style.paddingTop = 0; el.style.paddingBottom = 0;
     el.style.marginTop = 0;  el.style.marginBottom = 0;
     window.setTimeout(() => {
-      el.style.display = 'none';
-      ['height','paddingTop','paddingBottom','marginTop','marginBottom','overflow','transition']
-        .forEach(p=>el.style.removeProperty(p));
-    }, duration);
-  }
-  function slideDown(el, duration=200){
-    if (!el) return;
-    el.style.removeProperty('display');
-    const cs = getComputedStyle(el);
-    el.style.display = cs.display === 'none' ? 'block' : cs.display;
-    const height = el.offsetHeight;
-    el.style.overflow = 'hidden';
-    el.style.height = 0;
-    el.style.paddingTop = 0; el.style.paddingBottom = 0;
-    el.style.marginTop = 0;  el.style.marginBottom = 0;
-    el.offsetHeight;
-    el.style.transition = `height ${duration}ms ease, margin ${duration}ms ease, padding ${duration}ms ease`;
-    el.style.height = height + 'px';
-    window.setTimeout(() => {
-      ['height','overflow','transition','paddingTop','paddingBottom','marginTop','marginBottom']
-        .forEach(p=>el.style.removeProperty(p));
-    }, duration);
-  }
-  function slideToggle(el, duration=200){
-    if (!el) return;
-    if (getComputedStyle(el).display === 'none') slideDown(el, duration);
-    else slideUp(el, duration);
-  }
-
-  /* ===========================
-   * MINIMAL STORAGE
-   * =========================== */
-  Module.isStorageAvailable = function () {
-    try { localStorage.setItem('__rb__t', '1'); localStorage.removeItem('__rb__t'); return true; }
+@@ -132,91 +176,430 @@ var FOXIZ_MAIN_SCRIPT = (function (Module) {
     catch (e) { return false; }
   };
   Module.setStorage = function (key, data) {
@@ -154,6 +169,343 @@ var FOXIZ_MAIN_SCRIPT = (function (Module) {
     this.readIndicator = $('#reading-progress');
     this.outerHTML = document.documentElement;
     this.YTPlayers = {};
+    this.lazyComments = null;
+    this.lazyAds = [];
+  };
+
+  /* ===========================
+   * DOM FOOTPRINT OPTIMIZATIONS
+   * =========================== */
+  Module.removeEmptyParagraphs = function (container) {
+    if (!container) return;
+    container.querySelectorAll('p').forEach((p) => {
+      if (isEmptyParagraph(p)) p.remove();
+    });
+  };
+
+  Module.flattenEmbedWrappers = function (container) {
+    if (!container) return;
+    container.querySelectorAll('.wp-block-embed__wrapper').forEach((wrapper) => {
+      if (wrapper.childElementCount === 1) {
+        const child = wrapper.firstElementChild;
+        if (child && child.matches('iframe, video')) {
+          wrapper.parentElement.insertBefore(child, wrapper);
+          wrapper.remove();
+        }
+      }
+    });
+  };
+
+  Module.optimizeGalleries = function (container) {
+    if (!container) return;
+    container.querySelectorAll('figure.wp-block-gallery').forEach((gallery) => {
+      gallery.classList.add('optimized-gallery');
+      gallery.querySelectorAll(':scope > figure').forEach((nested) => {
+        if (nested.querySelector('figcaption')) return;
+        const media = nested.querySelector('img, video, iframe');
+        if (!media) return;
+        liftChild(media, nested);
+        transferPresentation(nested, media);
+        gallery.insertBefore(media, nested);
+        nested.remove();
+      });
+      gallery.querySelectorAll(':scope > div').forEach((div) => {
+        if (div.childElementCount === 1) {
+          const media = div.firstElementChild;
+          if (media && media.matches('img, video, iframe')) {
+            liftChild(media, div);
+            gallery.insertBefore(media, div);
+            div.remove();
+          }
+        }
+      });
+    });
+  };
+
+  Module.flattenMediaFigures = function (container) {
+    if (!container) return;
+    container.querySelectorAll('figure').forEach((figure) => {
+      if (figure.classList.contains('wp-block-gallery')) return;
+      if (figure.querySelector('figcaption')) return;
+      const media = figure.querySelector('img, video, iframe');
+      if (!media) return;
+      liftChild(media, figure);
+      if (media.parentElement !== figure) return;
+      transferPresentation(figure, media);
+      figure.replaceWith(media);
+    });
+  };
+
+  Module.deferShareBlocks = function () {
+    const module = this;
+    const configs = [
+      {
+        selector: '.e-shared-sec .rbbsl',
+        buttonClass: 'share-toggle-btn bottom-share-toggle',
+        label: 'Show share options',
+        hideLabel: 'Hide share options',
+      },
+    ];
+
+    configs.forEach((cfg) => {
+      const list = document.querySelector(cfg.selector);
+      if (!list) return;
+      const holder = list.parentElement;
+      if (!holder) return;
+      if (holder.querySelector(`.${cfg.buttonClass}`)) return;
+
+      const template = document.createElement('template');
+      template.innerHTML = list.outerHTML;
+      const targetId = list.id || nextID('share-list');
+      list.remove();
+
+      const button = document.createElement('button');
+      button.type = 'button';
+      button.className = cfg.buttonClass;
+      button.setAttribute('aria-expanded', 'false');
+      button.setAttribute('aria-controls', targetId);
+      const showLabel = cfg.label;
+      const hideLabel = cfg.hideLabel || cfg.label;
+      button.textContent = showLabel;
+
+      let activeList = null;
+      const mountList = () => {
+        if (activeList) return activeList;
+        const fragment = template.content.cloneNode(true);
+        const block = fragment.firstElementChild;
+        if (!block) return null;
+        block.id = targetId;
+        holder.insertBefore(block, button.nextSibling);
+        activeList = block;
+        module.hoverEffects();
+        module.hoverTipsy();
+        return block;
+      };
+
+      const unmountList = () => {
+        if (!activeList) return;
+        activeList.remove();
+        activeList = null;
+      };
+
+      const toggleList = (forceOpen) => {
+        const shouldOpen = typeof forceOpen === 'boolean'
+          ? forceOpen
+          : !activeList;
+        if (!shouldOpen) {
+          unmountList();
+          button.setAttribute('aria-expanded', 'false');
+          button.textContent = showLabel;
+          return;
+        }
+        const block = mountList();
+        if (!block) return;
+        button.setAttribute('aria-expanded', 'true');
+        button.textContent = hideLabel;
+      };
+
+      button.addEventListener('click', () => toggleList());
+      holder.appendChild(button);
+
+      if (cfg.autoOpen && typeof cfg.autoOpen === 'function' && cfg.autoOpen()) {
+        toggleList(true);
+      }
+    });
+  };
+
+  Module.reserveImageSpace = function () {
+    const selectors = [
+      '.entry-content img',
+      '.featured-lightbox-trigger img',
+      '.single-featured img',
+    ];
+
+    const applyAspect = (img, width, height) => {
+      if (!img || !width || !height) return;
+      if (!img.style.aspectRatio) {
+        img.style.aspectRatio = `${width} / ${height}`;
+      }
+      img.dataset.aspectReserved = 'true';
+    };
+
+    const processImage = (img) => {
+      if (!img || img.dataset.aspectReserved === 'true') return;
+      const attrWidth = parseInt(img.getAttribute('width') || '', 10);
+      const attrHeight = parseInt(img.getAttribute('height') || '', 10);
+      if (attrWidth > 0 && attrHeight > 0) {
+        applyAspect(img, attrWidth, attrHeight);
+        return;
+      }
+      if (img.complete && img.naturalWidth && img.naturalHeight) {
+        applyAspect(img, img.naturalWidth, img.naturalHeight);
+        return;
+      }
+      const onLoad = () => {
+        if (img.naturalWidth && img.naturalHeight) {
+          applyAspect(img, img.naturalWidth, img.naturalHeight);
+        }
+      };
+      img.addEventListener('load', onLoad, { once: true });
+    };
+
+    selectors.forEach((selector) => {
+      document.querySelectorAll(selector).forEach(processImage);
+    });
+  };
+
+  Module.deferComments = function () {
+    const wrap = $('.comment-box-wrap');
+    if (!wrap) return;
+    const holder = wrap.querySelector('.comment-holder');
+    if (!holder) return;
+
+    const template = document.createElement('template');
+    template.innerHTML = holder.outerHTML;
+    holder.remove();
+
+    const headerText = wrap.querySelector('.comment-box-header span')?.textContent.trim() || 'Comments';
+    const button = document.createElement('button');
+    button.type = 'button';
+    button.className = 'comment-toggle-btn show-post-comment';
+    const targetId = holder.id || nextID('lazy-comments');
+    button.setAttribute('aria-controls', targetId);
+    button.setAttribute('aria-expanded', 'false');
+    button.textContent = `Show ${headerText}`;
+
+    wrap.appendChild(button);
+
+    this.lazyComments = {
+      wrapper: wrap,
+      template,
+      button,
+      containerId: targetId,
+      header: headerText,
+      current: null,
+    };
+  };
+
+  Module.toggleComments = function (forceOpen) {
+    const store = this.lazyComments;
+    if (!store || !store.button || !store.template) return;
+    const shouldOpen = typeof forceOpen === 'boolean'
+      ? forceOpen
+      : store.button.getAttribute('aria-expanded') !== 'true';
+
+    if (!shouldOpen) {
+      if (store.current) {
+        store.current.remove();
+        store.current = null;
+      }
+      store.button.setAttribute('aria-expanded', 'false');
+      store.button.textContent = `Show ${store.header}`;
+      return;
+    }
+
+    if (store.current) return;
+
+    const fragment = store.template.content.cloneNode(true);
+    const block = fragment.firstElementChild;
+    if (!block) return;
+    block.id = store.containerId;
+    store.wrapper.appendChild(block);
+    store.current = block;
+    store.button.setAttribute('aria-expanded', 'true');
+    store.button.textContent = `Hide ${store.header}`;
+    const akismetField = block.querySelector('[id^="ak_js_"]');
+    if (akismetField) akismetField.value = String(Date.now());
+  };
+
+  Module.deferAds = function () {
+    const adSlots = [];
+    $$('.ad-wrap ins.adsbygoogle').forEach((ins) => {
+      const host = ins.parentElement;
+      if (!host) return;
+      const wrapper = safeClosest(host, '.ad-wrap', document) || host;
+      const data = {
+        host,
+        wrapper,
+        client: ins.getAttribute('data-ad-client') || '',
+        slot: ins.getAttribute('data-ad-slot') || '',
+        format: ins.getAttribute('data-ad-format') || '',
+        fullWidth: ins.getAttribute('data-full-width-responsive') || '',
+        style: ins.getAttribute('style') || 'display:block',
+      };
+
+      const script = wrapper.querySelector('script');
+      if (script && script.textContent && script.textContent.includes('adsbygoogle')) {
+        script.remove();
+      }
+
+      wrapper.dataset.lazyAd = 'pending';
+      host.dataset.adClient = data.client;
+      host.dataset.adSlot = data.slot;
+      host.dataset.adFormat = data.format;
+      host.dataset.adFullWidth = data.fullWidth;
+      host.dataset.adStyle = data.style;
+      ins.remove();
+      adSlots.push({ host, wrapper });
+    });
+
+    if (!adSlots.length) return;
+
+    const renderAd = (slot) => {
+      const { host, wrapper } = slot;
+      if (!host || host.dataset.adRendered === 'true') return;
+      const ins = document.createElement('ins');
+      ins.className = 'adsbygoogle';
+      ins.style.cssText = host.dataset.adStyle || 'display:block';
+      if (host.dataset.adClient) ins.setAttribute('data-ad-client', host.dataset.adClient);
+      if (host.dataset.adSlot) ins.setAttribute('data-ad-slot', host.dataset.adSlot);
+      if (host.dataset.adFormat) ins.setAttribute('data-ad-format', host.dataset.adFormat);
+      if (host.dataset.adFullWidth) ins.setAttribute('data-full-width-responsive', host.dataset.adFullWidth);
+      host.appendChild(ins);
+      host.dataset.adRendered = 'true';
+      if (wrapper) wrapper.dataset.lazyAd = 'loaded';
+      try {
+        (window.adsbygoogle = window.adsbygoogle || []).push({});
+      } catch (err) {
+        console.error(err);
+      }
+    };
+
+    if (!('IntersectionObserver' in window)) {
+      adSlots.forEach(renderAd);
+      return;
+    }
+
+    const map = new WeakMap();
+    const observer = new IntersectionObserver((entries, obs) => {
+      entries.forEach((entry) => {
+        if (!entry.isIntersecting) return;
+        const slot = map.get(entry.target);
+        if (slot) {
+          renderAd(slot);
+          obs.unobserve(entry.target);
+        }
+      });
+    }, { rootMargin: '200px 0px' });
+
+    adSlots.forEach((slot) => {
+      const target = slot.wrapper || slot.host;
+      map.set(target, slot);
+      observer.observe(target);
+    });
+
+    this.lazyAds = adSlots;
+  };
+
+  Module.optimizeDomSize = function () {
+    const entry = $('.entry-content');
+    if (entry) {
+      this.removeEmptyParagraphs(entry);
+      this.flattenEmbedWrappers(entry);
+      this.optimizeGalleries(entry);
+      this.flattenMediaFigures(entry);
+    }
+    this.deferShareBlocks();
+    this.reserveImageSpace();
+    this.deferComments();
+    this.deferAds();
   };
 
   /* ===========================
@@ -195,6 +547,8 @@ var FOXIZ_MAIN_SCRIPT = (function (Module) {
    * =========================== */
   Module.hoverEffects = function () {
     $$('.effect-fadeout').forEach(el => {
+      if (el.dataset.hoverBound === 'true') return;
+      el.dataset.hoverBound = 'true';
       on(el, 'mouseenter', (e) => { e.stopPropagation(); el.classList.add('activated'); });
       on(el, 'mouseleave', () => el.classList.remove('activated'));
     });
@@ -220,331 +574,7 @@ var FOXIZ_MAIN_SCRIPT = (function (Module) {
       trigger.classList.add('show-preview');
       wrap.style.zIndex = 3;
       const el = wrap.querySelector('video');
-      if (el) playPromise = el.play();
-    });
-    delegate(document, '.preview-trigger', 'mouseleave', (e, trigger) => {
-      const el = trigger.querySelector('video');
-      const wrap = trigger.querySelector('.preview-video');
-      if (wrap) wrap.style.zIndex = 1;
-      if (el && playPromise !== undefined) {
-        playPromise.then(_ => el.pause()).catch(() => {});
-      }
-    });
-  };
 
-
-
-
-  /* ===========================
-   * HEADER DROPDOWNS
-   * =========================== */
-  Module.headerDropdown = function () {
-    const closeAll = () => $$('.dropdown-activated').forEach(el => el.classList.remove('dropdown-activated'));
-
-    delegate(document, '.more-trigger', 'click', (e, btn) => {
-      e.preventDefault(); e.stopPropagation();
-      this.calcSubMenuPos();
-      const holder = safeClosest(btn, '.header-wrap')?.querySelector('.more-section-outer');
-      if (!holder) return;
-      if (!holder.classList.contains('dropdown-activated')) {
-        closeAll(); holder.classList.add('dropdown-activated');
-      } else {
-        holder.classList.remove('dropdown-activated');
-      }
-      if (btn.classList.contains('search-btn')) {
-        setTimeout(() => holder.querySelector('input[type="text"]')?.focus(), 150);
-      }
-    });
-
-    delegate(document, '.search-trigger', 'click', (e, btn) => {
-      e.preventDefault(); e.stopPropagation();
-      const holder = safeClosest(btn, '.header-dropdown-outer');
-      if (!holder) return;
-      if (!holder.classList.contains('dropdown-activated')) {
-        closeAll(); holder.classList.add('dropdown-activated');
-        setTimeout(() => holder.querySelector('input[type="text"]')?.focus(), 150);
-      } else {
-        holder.classList.remove('dropdown-activated');
-      }
-    });
-
-    delegate(document, '.dropdown-trigger', 'click', (e, btn) => {
-      e.preventDefault(); e.stopPropagation();
-      const holder = safeClosest(btn, '.header-dropdown-outer');
-      if (!holder) return;
-      if (!holder.classList.contains('dropdown-activated')) {
-        closeAll(); holder.classList.add('dropdown-activated');
-      } else {
-        holder.classList.remove('dropdown-activated');
-      }
-    });
-  };
-
-  /* ===========================
-   * MEGA MENU POSITIONING
-   * =========================== */
-  Module.initSubMenuPos = function () {
-    setTimeout(() => this.calcSubMenuPos(), 1000);
-    let triggered = false;
-    $$('.menu-has-child-mega').forEach(el => {
-      on(el, 'mouseenter', () => {
-        if (!triggered) this.calcSubMenuPos();
-        triggered = true;
-      });
-    });
-    on(window, 'resize', () => this.calcSubMenuPos());
-  };
-
-  Module.calcSubMenuPos = function () {
-    if (window.outerWidth < 1025) return false;
-
-    const headerWrapper = $('#site-header');
-    const bodyWidth = bodyEl.clientWidth;
-
-    $$('.menu-has-child-mega').forEach(item => {
-      const mega = item.querySelector('.mega-dropdown');
-      if (!mega) return;
-      const rect = item.getBoundingClientRect();
-      const left = rect.left + window.scrollX;
-      mega.style.width = bodyWidth + 'px';
-      mega.style.left = (-left) + 'px';
-      item.classList.add('mega-menu-loaded');
-    });
-
-    if (!headerWrapper) return;
-
-    const hRect = headerWrapper.getBoundingClientRect();
-    const headerLeft = hRect.left + window.scrollX;
-    const headerRight = headerLeft + hRect.width;
-    const headerWidth = hRect.width;
-
-    $$('ul.sub-menu').forEach(item => {
-      const r = item.getBoundingClientRect();
-      const left = r.left + window.scrollX;
-      const right = left + item.offsetWidth + 100;
-      if (right > headerRight) item.classList.add('left-direction');
-    });
-
-    $$('.flex-dropdown').forEach(item => {
-      const parent = item.parentElement;
-      if (!parent || parent.classList.contains('is-child-wide') || item.classList.contains('mega-has-left')) return;
-
-      const itemWidth = item.offsetWidth;
-      const iHalf = itemWidth / 2;
-
-      const pRect = parent.getBoundingClientRect();
-      const pLeft = pRect.left + window.scrollX;
-      const pHalf = parent.offsetWidth / 2;
-      const pCenter = pLeft + pHalf;
-
-      const headerLeft2 = $('#site-header').getBoundingClientRect().left + window.scrollX;
-      const headerRight2 = headerLeft2 + $('#site-header').getBoundingClientRect().width;
-      const headerWidth2 = $('#site-header').getBoundingClientRect().width;
-
-      const rightSpace = headerRight2 - pCenter;
-      const leftSpace  = pCenter - headerLeft2;
-
-      if (itemWidth >= headerWidth2) {
-        item.style.width = (headerWidth2 - 2) + 'px';
-        item.style.left = (-pLeft) + 'px';
-        item.style.right = 'auto';
-      } else if (iHalf > rightSpace) {
-        item.style.right = (-rightSpace + pHalf + 1) + 'px';
-        item.style.left  = 'auto';
-      } else if (iHalf > leftSpace) {
-        item.style.left  = (-leftSpace + pHalf + 1) + 'px';
-        item.style.right = 'auto';
-      } else {
-        item.style.left  = (-iHalf + pHalf) + 'px';
-        item.style.right = 'auto';
-      }
-    });
-  };
-
-  /* ===========================
-   * OUTSIDE CLICK CLOSES
-   * =========================== */
-  Module.documentClick = function () {
-    document.addEventListener('click', function (e) {
-      if (safeClosest(e.target, '.mobile-menu-trigger, .mobile-collapse, .more-section-outer, .header-dropdown-outer, .mfp-wrap', document)) {
-        return;
-      }
-      document.querySelectorAll('.dropdown-activated').forEach(el => el.classList.remove('dropdown-activated'));
-      document.documentElement.classList.remove('collapse-activated');
-      document.body.classList.remove('collapse-activated');
-      document.querySelectorAll('.is-form-layout .live-search-response').forEach(el => { el.style.display = 'none'; });
-    });
-  };
-
-  /* ===========================
-   * MOBILE COLLAPSE
-   * =========================== */
-  Module.mobileCollapse = function () {
-    const root = document.documentElement;
-    const rootBody = document.body;
-
-    document.addEventListener('click', function (e) {
-      const btn = safeClosest(e.target, '.mobile-menu-trigger', document);
-      if (!btn) return;
-
-      e.preventDefault();
-      e.stopPropagation();
-
-      const isOpen = root.classList.contains('collapse-activated') || rootBody.classList.contains('collapse-activated');
-
-      root.classList.toggle('collapse-activated', !isOpen);
-      rootBody.classList.toggle('collapse-activated', !isOpen);
-
-      btn.setAttribute('aria-expanded', String(!isOpen));
-
-      if (btn.classList.contains('mobile-search-icon')) {
-        setTimeout(() => {
-          const input = document.querySelector('.mobile-search-form input[type="text"]');
-          if (input) input.focus();
-        }, 100);
-      }
-    });
-
-    const panel = document.querySelector('.mobile-collapse') || document.querySelector('#mobile-menu') || document.querySelector('#offcanvas');
-    if (panel) {
-      panel.addEventListener('click', (e) => e.stopPropagation());
-    }
-  };
-
-  /* ===========================
-   * PRIVACY TRIGGER
-   * =========================== */
-  Module.privacyTrigger = function () {
-    const trigger = $('#privacy-trigger');
-    on(trigger, 'click', (e) => {
-      e.preventDefault(); e.stopPropagation();
-      this.setStorage('RubyPrivacyAllowed', '1');
-      const bar = $('#rb-privacy');
-      if (!bar) return false;
-      bar.style.transition = 'height .2s ease, opacity .2s ease';
-      bar.style.overflow = 'hidden';
-      bar.style.opacity = '0';
-      bar.style.height = '0px';
-      setTimeout(() => bar.remove(), 220);
-      return false;
-    });
-  };
-
-  /* ===========================
-   * TOC TOGGLE
-   * =========================== */
-  Module.tocToggle = function () {
-    document.addEventListener('click', function (e) {
-      const btn = safeClosest(e.target, '.toc-toggle', document);
-      if (!btn) return;
-
-      e.preventDefault();
-      e.stopPropagation();
-
-      let content = null;
-      const targetSel = btn.getAttribute('data-target') || btn.getAttribute('aria-controls');
-      if (targetSel) {
-        content = document.querySelector(targetSel.startsWith('#') ? targetSel : `#${targetSel}`);
-      }
-      if (!content) {
-        const holder = safeClosest(btn, '.ruby-table-contents', document) || btn.parentElement || document;
-        content = holder.querySelector('.toc-content');
-      }
-      if (!content) return;
-
-      const willOpen = getComputedStyle(content).display === 'none';
-      slideToggle(content, 200);
-      btn.classList.toggle('activate', willOpen);
-      btn.setAttribute('aria-expanded', String(willOpen));
-    });
-  };
-
-  /* ===========================
-   * LOGIN POPUP
-   * =========================== */
-  Module.loginPopup = function () {
-    const form = $('#rb-user-popup-form');
-    if (!form) return;
-
-    const ensureModal = () => {
-      let overlay = $('#rb-login-overlay');
-      if (overlay) return overlay;
-      overlay = document.createElement('div');
-      overlay.id = 'rb-login-overlay';
-      overlay.innerHTML = `
-        <div class="rb-modal">
-          <button class="close-popup-btn" aria-label="Close"><span class="close-icon"></span></button>
-          <div class="rb-modal-body"></div>
-        </div>`;
-      overlay.style.cssText = 'position:fixed;inset:0;background:rgba(0,0,0,.6);display:none;opacity:0;z-index:99999;';
-      const modal = overlay.querySelector('.rb-modal');
-      modal.style.cssText = 'position:relative;margin:5vh auto;max-width:520px;background:#fff;border-radius:8px;padding:20px;';
-      document.body.appendChild(overlay);
-      return overlay;
-    };
-
-    const open = () => {
-      const overlay = ensureModal();
-      const body = overlay.querySelector('.rb-modal-body');
-      body.innerHTML = '';
-      body.appendChild(form);
-      overlay.style.display = 'block';
-      requestAnimationFrame(() => overlay.style.opacity = '1');
-
-      try { if (typeof turnstile !== 'undefined') turnstile.reset(); } catch {}
-      try { if (typeof grecaptcha !== 'undefined') grecaptcha.reset(); } catch {}
-    };
-    const close = () => {
-      const overlay = $('#rb-login-overlay');
-      if (!overlay) return;
-      overlay.style.opacity = '0';
-      setTimeout(() => overlay.style.display = 'none', 150);
-    };
-
-    delegate(document, '.login-toggle', 'click', (e) => { e.preventDefault(); e.stopPropagation(); open(); });
-    delegate(document, '#rb-login-overlay .close-popup-btn', 'click', (e) => { e.preventDefault(); close(); });
-    on(document, 'keydown', (e) => { if (e.key === 'Escape') close(); });
-    delegate(document, '#rb-login-overlay', 'click', (e, ov) => { if (e.target === ov) close(); });
-  };
-
-  /* ===========================
-   * YOUTUBE IFRAME
-   * =========================== */
-  Module.loadYoutubeIframe = function () {
-    const playlists = $$('.yt-playlist');
-    if (!playlists.length) return;
-
-    if (!document.getElementById('yt-iframe-api')) {
-      const tag = document.createElement('script');
-      tag.src = 'https://www.youtube.com/iframe_api';
-      tag.id = 'yt-iframe-api';
-      const first = document.getElementsByTagName('script')[0];
-      first.parentNode.insertBefore(tag, first);
-    }
-
-    window.onYouTubeIframeAPIReady = () => {
-      playlists.forEach(pl => {
-        const iframe = pl.querySelector('.yt-player');
-        const videoID = pl.dataset.id;
-        const blockID = pl.dataset.block;
-        if (!iframe || !videoID || !blockID) return;
-        this.YTPlayers[blockID] = new YT.Player(iframe, {
-          height: '540', width: '960', videoId: videoID,
-          events: { 'onReady': this.videoPlayToggle.bind(this), 'onStateChange': this.videoPlayToggle.bind(this) }
-        });
-      });
-
-      delegate(document, '.plist-item', 'click', (e, item) => {
-        e.preventDefault(); e.stopPropagation();
-        const wrapper = safeClosest(item, '.yt-playlist', document);
-        if (!wrapper) return;
-        const currentBlockID = wrapper.dataset.block;
-        const videoID = item.dataset.id;
-        const title = item.querySelector('.plist-item-title')?.textContent || '';
-        const meta = item.dataset.index || '';
-        Object.values(this.YTPlayers).forEach(p => p.pauseVideo && p.pauseVideo());
-        this.YTPlayers[currentBlockID]?.loadVideoById({ videoId: videoID });
-        wrapper.querySelector('.yt-trigger')?.classList.add('is-playing');
         const titleEl = wrapper.querySelector('.play-title');
         if (titleEl) { hide(titleEl); titleEl.textContent = title; show(titleEl); }
         const idxEl = wrapper.querySelector('.video-index'); if (idxEl) idxEl.textContent = meta;
@@ -570,29 +600,31 @@ var FOXIZ_MAIN_SCRIPT = (function (Module) {
    * COMMENTS HELPERS
    * =========================== */
   Module.showPostComment = function () {
+    const module = this;
     delegate(document, '.smeta-sec .meta-comment', 'click', (e) => {
-      const btn = $('.show-post-comment'); if (!btn) return;
+      e.preventDefault(); e.stopPropagation();
+      const btn = module.lazyComments?.button;
+      if (!btn) return;
+      module.toggleComments(true);
       smoothScrollTo(btn.getBoundingClientRect().top + window.scrollY);
-      btn.click();
     });
 
-    delegate(document, '.show-post-comment', 'click', (e, btn) => {
+    delegate(document, '.show-post-comment', 'click', (e) => {
       e.preventDefault(); e.stopPropagation();
-      const wrap = btn.parentElement;
-      hide(btn); btn.remove();
-      wrap.querySelectorAll('.is-invisible').forEach(el => el.classList.remove('is-invisible'));
-      const holder = wrap.nextElementSibling?.classList.contains('comment-holder') ? wrap.nextElementSibling : null;
-      if (holder) holder.classList.remove('is-hidden');
+      module.toggleComments();
     });
   };
 
   Module.scrollToComment = function () {
     const h = window.location.hash || '';
     if (h === '#respond' || h.startsWith('#comment')) {
-      const btn = $('.show-post-comment');
-      if (!btn) return;
-      smoothScrollTo(btn.getBoundingClientRect().top + window.scrollY - 200);
-      btn.click();
+      this.toggleComments(true);
+      const target = document.querySelector(h) || this.lazyComments?.button;
+      if (target) {
+        requestAnimationFrame(() => {
+          smoothScrollTo(target.getBoundingClientRect().top + window.scrollY - 200);
+        });
+      }
     }
   };
 
@@ -610,8 +642,9 @@ var FOXIZ_MAIN_SCRIPT = (function (Module) {
    * MASTER INIT (NO PAGINATION)
    * =========================== */
   Module.init = function () {
-    this.tocToggle();
     this.initParams();
+    this.optimizeDomSize();
+    this.tocToggle();
     this.fontResizer();
     this.hoverTipsy();
     this.hoverEffects();
@@ -625,6 +658,8 @@ var FOXIZ_MAIN_SCRIPT = (function (Module) {
     this.loadYoutubeIframe();
     this.showPostComment();
     this.scrollToComment();
+    const module = this;
+    window.addEventListener('load', () => module.reserveImageSpace());
     // (Pagination is initialized by pagination.js)
   };
 
