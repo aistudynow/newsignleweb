@@ -75,6 +75,63 @@ var FOXIZ_MAIN_SCRIPT = window.FOXIZ_MAIN_SCRIPT || {};
   const bodyEl = document.body;
   const smoothScrollTo = (y) => window.scrollTo({ top: y, behavior: 'smooth' });
 
+
+
+const nativeDocumentWrite = document.write;
+  const nativeDocumentWriteln = document.writeln;
+
+  const safeDocumentWriter = (chunks, addNewLine) => {
+    const normalized = Array.isArray(chunks) && chunks.length ? chunks : [''];
+    const markup = normalized
+      .map((chunk) => (chunk == null ? '' : String(chunk)))
+      .join('');
+
+    if (document.readyState === 'loading') {
+      if (addNewLine && typeof nativeDocumentWriteln === 'function') {
+        nativeDocumentWriteln.call(document, markup);
+      } else if (typeof nativeDocumentWrite === 'function') {
+        nativeDocumentWrite.call(
+          document,
+          addNewLine && typeof nativeDocumentWriteln !== 'function' ? `${markup}\n` : markup
+        );
+      }
+      return;
+    }
+
+    const html = addNewLine ? `${markup}\n` : markup;
+    if (!html) return;
+
+    const script = document.currentScript;
+    if (script && typeof script.insertAdjacentHTML === 'function') {
+      try {
+        script.insertAdjacentHTML('afterend', html);
+        return;
+      } catch (err) {
+        /* fall back to body append */
+      }
+    }
+
+    if (document.body && typeof document.body.insertAdjacentHTML === 'function') {
+      document.body.insertAdjacentHTML('beforeend', html);
+    } else if (addNewLine && typeof nativeDocumentWriteln === 'function') {
+      nativeDocumentWriteln.call(document, markup);
+    } else if (typeof nativeDocumentWrite === 'function') {
+      nativeDocumentWrite.call(document, html);
+    }
+  };
+
+  document.write = function (...args) {
+    safeDocumentWriter(args, false);
+  };
+
+  document.writeln = function (...args) {
+    safeDocumentWriter(args, true);
+  };
+
+
+
+  
+
   /* =================
    * SLIDE HELPERS
    * ================= */
