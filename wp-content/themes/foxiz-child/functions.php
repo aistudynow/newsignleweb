@@ -53,17 +53,6 @@ function wd4_is_frontend_request(): bool {
 
 
 
-function wd4_get_child_asset_meta( string $relative ): array {
-    $relative  = ltrim( $relative, '/' );
-    $base_dir  = trailingslashit( get_stylesheet_directory() );
-    $base_uri  = trailingslashit( get_stylesheet_directory_uri() );
-    $path      = $base_dir . $relative;
-    $src       = $base_uri . $relative;
-    $version   = file_exists( $path ) ? (string) filemtime( $path ) : null;
-
-    return array( $src, $version );
-}
-
 
 
 
@@ -91,461 +80,6 @@ function wd4_normalize_attachment_id( $attachment ): int {
     return 0;
 }
 
-function wd4_get_main_post_thumbnail_id(): int {
-    static $cached = null;
-
-    if ( null !== $cached ) {
-        return $cached;
-    }
-
-    $cached = 0;
-
-    if ( ! wd4_is_frontend_request() ) {
-        return $cached;
-    }
-
-    if ( function_exists( 'is_singular' ) && is_singular() ) {
-        $object = get_queried_object();
-
-        if ( is_object( $object ) && isset( $object->ID ) ) {
-            $cached = wd4_to_positive_int( get_post_thumbnail_id( $object ) );
-        }
-    }
-
-    $cached = (int) apply_filters( 'wd4_main_post_thumbnail_id', $cached );
-
-    return $cached;
-}
-
-function wd4_is_main_post_thumbnail_id( int $attachment_id ): bool {
-    $attachment_id = wd4_to_positive_int( $attachment_id );
-
-    if ( $attachment_id <= 0 ) {
-        return false;
-    }
-
-    return $attachment_id === wd4_get_main_post_thumbnail_id();
-}
-
-function wd4_get_attachment_reference_fragments( int $attachment_id ): array {
-    static $cache = array();
-
-    $attachment_id = wd4_to_positive_int( $attachment_id );
-
-    if ( $attachment_id <= 0 ) {
-        return array();
-    }
-
-    if ( isset( $cache[ $attachment_id ] ) ) {
-        return $cache[ $attachment_id ];
-    }
-
-    $fragments   = array( 'wp-image-' . $attachment_id );
-    $attachment_url = function_exists( 'wp_get_attachment_url' ) ? wp_get_attachment_url( $attachment_id ) : '';
-
-    if ( $attachment_url ) {
-        $fragments[] = $attachment_url;
-
-        $path = parse_url( $attachment_url, PHP_URL_PATH );
-        if ( $path ) {
-            $basename = basename( $path );
-            if ( $basename ) {
-                $fragments[] = $basename;
-            }
-        }
-    }
-
-    $fragments = array_values( array_unique( array_filter( $fragments ) ) );
-
-    $cache[ $attachment_id ] = $fragments;
-
-    return $cache[ $attachment_id ];
-}
-
-
-function wd4_guess_image_mime_from_url( string $url ): string {
-    if ( '' === $url ) {
-        return '';
-    }
-
-    $path = parse_url( $url, PHP_URL_PATH );
-    if ( ! $path ) {
-        return '';
-    }
-
-    $extension = strtolower( pathinfo( $path, PATHINFO_EXTENSION ) );
-
-    switch ( $extension ) {
-        case 'avif':
-            return 'image/avif';
-        case 'webp':
-            return 'image/webp';
-        case 'png':
-            return 'image/png';
-        case 'gif':
-            return 'image/gif';
-        case 'jpg':
-        case 'jpeg':
-            return 'image/jpeg';
-        case 'svg':
-            return 'image/svg+xml';
-        case 'bmp':
-            return 'image/bmp';
-    }
-
-    return '';
-}
-
-function wd4_set_lcp_preload_data( array $data ): void {
-    global $wd4_lcp_preload_data;
-
-    $defaults = array(
-        'src'    => '',
-        'srcset' => '',
-        'sizes'  => '',
-        'type'   => '',
-    );
-
-    $data = array_merge( $defaults, array(
-        'src'    => isset( $data['src'] ) ? (string) $data['src'] : '',
-        'srcset' => isset( $data['srcset'] ) ? (string) $data['srcset'] : '',
-        'sizes'  => isset( $data['sizes'] ) ? (string) $data['sizes'] : '',
-        'type'   => isset( $data['type'] ) ? (string) $data['type'] : '',
-    ) );
-
-    if ( '' === $data['src'] ) {
-        return;
-    }
-
-    if ( '' === $data['type'] ) {
-        $data['type'] = wd4_guess_image_mime_from_url( $data['src'] );
-    }
-
-    $wd4_lcp_preload_data = $data;
-}
-
-function wd4_get_lcp_preload_data(): array {
-    global $wd4_lcp_preload_data;
-
-    return ( is_array( $wd4_lcp_preload_data ) ) ? $wd4_lcp_preload_data : array();
-}
-
-function wd4_capture_lcp_preload_data_from_attr( array $attr ): void {
-    if ( empty( $attr ) ) {
-        return;
-    }
-
-    $data = array(
-        'src'    => isset( $attr['src'] ) ? (string) $attr['src'] : '',
-        'srcset' => isset( $attr['srcset'] ) ? (string) $attr['srcset'] : '',
-        'sizes'  => isset( $attr['sizes'] ) ? (string) $attr['sizes'] : '',
-    );
-
-    if ( '' === $data['src'] ) {
-        return;
-    }
-
-    wd4_set_lcp_preload_data( $data );
-}
-
-function wd4_capture_lcp_preload_data_from_img_html( string $html ): void {
-    if ( '' === trim( $html ) ) {
-        return;
-    }
-
-    $attr = array();
-
-    if ( preg_match_all( "/([a-zA-Z0-9_:-]+)\s*=\s*(\"|')(.*?)\\2/s", $html, $matches, PREG_SET_ORDER ) ) {
-        foreach ( $matches as $match ) {
-            $name  = strtolower( $match[1] );
-            $value = html_entity_decode( $match[3], ENT_QUOTES, 'UTF-8' );
-
-            $attr[ $name ] = $value;
-        }
-    }
-
-    if ( empty( $attr['src'] ) && ! empty( $attr['data-src'] ) ) {
-        $attr['src'] = $attr['data-src'];
-    }
-
-    if ( empty( $attr['src'] ) && ! empty( $attr['data-lazy-src'] ) ) {
-        $attr['src'] = $attr['data-lazy-src'];
-    }
-
-    wd4_capture_lcp_preload_data_from_attr( $attr );
-}
-
-function wd4_resolve_lcp_preload_data(): array {
-    $data = wd4_get_lcp_preload_data();
-
-    if ( ! empty( $data['src'] ) ) {
-        return $data;
-    }
-
-    $candidate = wd4_get_lcp_candidate();
-
-    if ( empty( $candidate ) ) {
-        return array();
-    }
-
-    $data = array(
-        'src'    => isset( $candidate['src'] ) ? (string) $candidate['src'] : '',
-        'srcset' => isset( $candidate['srcset'] ) ? (string) $candidate['srcset'] : '',
-        'sizes'  => isset( $candidate['sizes'] ) ? (string) $candidate['sizes'] : '',
-    );
-
-    if ( '' === $data['src'] ) {
-        return array();
-    }
-
-    wd4_set_lcp_preload_data( $data );
-
-    return wd4_get_lcp_preload_data();
-}
-
-function wd4_build_lcp_preload_tag( array $data ): string {
-    if ( empty( $data['src'] ) ) {
-        return '';
-    }
-
-    $attributes = array(
-        "rel='preload'",
-        "as='image'",
-        "href='" . esc_url( $data['src'] ) . "'",
-        "fetchpriority='high'",
-    );
-
-    if ( ! empty( $data['type'] ) ) {
-        $attributes[] = "type='" . esc_attr( $data['type'] ) . "'";
-    }
-
-    if ( ! empty( $data['srcset'] ) ) {
-        $attributes[] = "imagesrcset='" . esc_attr( $data['srcset'] ) . "'";
-    }
-
-    if ( ! empty( $data['sizes'] ) ) {
-        $attributes[] = "imagesizes='" . esc_attr( $data['sizes'] ) . "'";
-    }
-
-    return '<link ' . implode( ' ', $attributes ) . '>';
-}
-
-
-if ( ! function_exists( 'wd4_prepare_lcp_preload_from_attachment' ) ) {
-    function wd4_prepare_lcp_preload_from_attachment( int $attachment_id, $size = 'full' ): array {
-        $attachment_id = wd4_to_positive_int( $attachment_id );
-
-        if ( $attachment_id <= 0 ) {
-            return array();
-        }
-
-        $src = wp_get_attachment_image_url( $attachment_id, $size );
-
-        if ( ! $src ) {
-            return array();
-        }
-
-        $data = array(
-            'src'    => (string) $src,
-            'srcset' => function_exists( 'wp_get_attachment_image_srcset' ) ? (string) wp_get_attachment_image_srcset( $attachment_id, $size ) : '',
-            'sizes'  => function_exists( 'wp_get_attachment_image_sizes' ) ? (string) wp_get_attachment_image_sizes( $attachment_id, $size ) : '',
-            'type'   => wd4_guess_image_mime_from_url( (string) $src ),
-        );
-
-        return $data;
-    }
-}
-
-if ( ! function_exists( 'wd4_get_leading_archive_thumbnail_id' ) ) {
-    function wd4_get_leading_archive_thumbnail_id(): int {
-        if ( is_singular() ) {
-            return wd4_get_main_post_thumbnail_id();
-        }
-
-        global $wp_query;
-
-        if ( ! ( $wp_query instanceof WP_Query ) ) {
-            return 0;
-        }
-
-        if ( empty( $wp_query->posts ) ) {
-            return 0;
-        }
-
-        foreach ( (array) $wp_query->posts as $post ) {
-            if ( $post instanceof WP_Post ) {
-                $thumbnail_id = get_post_thumbnail_id( $post );
-                $thumbnail_id = wd4_to_positive_int( $thumbnail_id );
-
-                if ( $thumbnail_id > 0 ) {
-                    return $thumbnail_id;
-                }
-            }
-        }
-
-        return 0;
-    }
-}
-
-
-
-
-
-
-function wd4_get_leading_archive_thumbnail_id(): int {
-    if ( is_singular() ) {
-        return wd4_get_main_post_thumbnail_id();
-    }
-
-    global $wp_query;
-
-    if ( ! ( $wp_query instanceof WP_Query ) ) {
-        return 0;
-    }
-
-    if ( empty( $wp_query->posts ) ) {
-        return 0;
-    }
-
-    foreach ( (array) $wp_query->posts as $post ) {
-        if ( $post instanceof WP_Post ) {
-            $thumbnail_id = get_post_thumbnail_id( $post );
-            $thumbnail_id = wd4_to_positive_int( $thumbnail_id );
-
-            if ( $thumbnail_id > 0 ) {
-                return $thumbnail_id;
-            }
-        }
-    }
-
-    return 0;
-}
-
-function wd4_output_early_lcp_preload_link(): void {
-    static $printed = false;
-
-    if ( $printed ) {
-        return;
-    }
-
-    if ( ! wd4_is_frontend_request() ) {
-        return;
-    }
-
-    if ( is_feed() || is_404() ) {
-        return;
-    }
-
-    if ( function_exists( 'is_embed' ) && is_embed() ) {
-        return;
-    }
-
-    $data = wd4_get_lcp_preload_data();
-
-    if ( empty( $data['src'] ) ) {
-        $attachment_id = wd4_get_leading_archive_thumbnail_id();
-
-        if ( $attachment_id > 0 ) {
-            $size = apply_filters( 'wd4_primary_lcp_preload_size', 'full', $attachment_id );
-            $data = wd4_prepare_lcp_preload_from_attachment( $attachment_id, $size );
-
-            if ( ! empty( $data['src'] ) ) {
-                wd4_set_lcp_preload_data( $data );
-            }
-        }
-    }
-
-    $data = wd4_get_lcp_preload_data();
-
-    if ( empty( $data['src'] ) ) {
-        return;
-    }
-
-    $tag = wd4_build_lcp_preload_tag( $data );
-
-    if ( '' === $tag ) {
-        return;
-    }
-
-    $printed = true;
-
-    echo $tag . "\n";
-}
-add_action( 'wp_head', 'wd4_output_early_lcp_preload_link', 2 );
-
-
-
-function wd4_maybe_inject_lcp_preload_link( string $html ): string {
-    static $injected = false;
-
-    if ( $injected || '' === $html ) {
-        return $html;
-    }
-
-    if ( false === stripos( $html, '</head>' ) ) {
-        return $html;
-    }
-
-    $data = wd4_resolve_lcp_preload_data();
-
-    if ( empty( $data['src'] ) ) {
-        return $html;
-    }
-
-    $tag = wd4_build_lcp_preload_tag( $data );
-
-    if ( '' === $tag ) {
-        return $html;
-    }
-
-    $pattern = sprintf(
-        '/<link\b[^>]*rel=(["\'])preload\1[^>]*href=(["\'])%s\2/i',
-        preg_quote( $data['src'], '/' )
-    );
-
-    if ( preg_match( $pattern, $html ) ) {
-        $injected = true;
-
-        return $html;
-    }
-
-    $result = preg_replace( '/</head>/i', $tag . '</head>', $html, 1, $count );
-
-    if ( null === $result || $count < 1 ) {
-        return $html;
-    }
-
-    $injected = true;
-
-    return $result;
-}
-
-function wd4_markup_references_attachment( string $html, int $attachment_id ): bool {
-    if ( '' === $html ) {
-        return false;
-    }
-
-    $attachment_id = wd4_to_positive_int( $attachment_id );
-
-    if ( $attachment_id <= 0 ) {
-        return false;
-    }
-
-    $haystack_lower = function_exists( 'strtolower' ) ? strtolower( $html ) : $html;
-
-    foreach ( wd4_get_attachment_reference_fragments( $attachment_id ) as $fragment ) {
-        if ( false !== strpos( $html, $fragment ) ) {
-            return true;
-        }
-
-        if ( false !== strpos( $haystack_lower, strtolower( $fragment ) ) ) {
-            return true;
-        }
-    }
-
-    return false;
-}
-
 function wd4_should_prioritize_lcp_image( array $attr, $attachment = null, $size = null, $context = null ): bool {
     if ( ! wd4_is_frontend_request() ) {
         return false;
@@ -557,42 +91,36 @@ function wd4_should_prioritize_lcp_image( array $attr, $attachment = null, $size
         return false;
     }
 
-    $attachment_id = wd4_normalize_attachment_id( $attachment );
-    $class_list    = isset( $attr['class'] ) ? strtolower( (string) $attr['class'] ) : '';
-    $src           = isset( $attr['src'] ) ? trim( (string) $attr['src'] ) : '';
+    $class_list = isset( $attr['class'] ) ? strtolower( (string) $attr['class'] ) : '';
+    $src        = isset( $attr['src'] ) ? trim( (string) $attr['src'] ) : '';
     if ( '' === $src && isset( $attr['data-src'] ) ) {
         $src = trim( (string) $attr['data-src'] );
     }
     if ( '' === $src && isset( $attr['data-lazy-src'] ) ) {
         $src = trim( (string) $attr['data-lazy-src'] );
     }
-    $width  = isset( $attr['width'] ) ? wd4_to_positive_int( $attr['width'] ) : 0;
-    $height = isset( $attr['height'] ) ? wd4_to_positive_int( $attr['height'] ) : 0;
+    $width      = isset( $attr['width'] ) ? wd4_to_positive_int( $attr['width'] ) : 0;
+    $height     = isset( $attr['height'] ) ? wd4_to_positive_int( $attr['height'] ) : 0;
 
-    $is_main_thumbnail = wd4_is_main_post_thumbnail_id( $attachment_id );
-    $should_prioritize = $is_main_thumbnail;
+    $should_prioritize = true;
 
-    if ( ! $should_prioritize ) {
-        $should_prioritize = true;
+    if ( '' === $class_list || false === strpos( $class_list, 'wp-post-image' ) ) {
+        $should_prioritize = false;
+    }
 
-        if ( '' === $class_list || false === strpos( $class_list, 'wp-post-image' ) ) {
-            $should_prioritize = false;
-        }
+    if ( '' === $src ) {
+        $should_prioritize = false;
+    }
 
-        if ( '' === $src ) {
-            $should_prioritize = false;
-        }
+    $min_width  = apply_filters( 'wd4_lcp_candidate_min_width', 900, $attr, $attachment, $size, $context );
+    $min_height = apply_filters( 'wd4_lcp_candidate_min_height', 500, $attr, $attachment, $size, $context );
 
-        $min_width  = apply_filters( 'wd4_lcp_candidate_min_width', 900, $attr, $attachment, $size, $context );
-        $min_height = apply_filters( 'wd4_lcp_candidate_min_height', 500, $attr, $attachment, $size, $context );
+    if ( $should_prioritize && $width && $width < $min_width ) {
+        $should_prioritize = false;
+    }
 
-        if ( $should_prioritize && $width && $width < $min_width ) {
-            $should_prioritize = false;
-        }
-
-        if ( $should_prioritize && $height && $height < $min_height ) {
-            $should_prioritize = false;
-        }
+    if ( $should_prioritize && $height && $height < $min_height ) {
+        $should_prioritize = false;
     }
 
     $should_prioritize = apply_filters(
@@ -608,8 +136,6 @@ function wd4_should_prioritize_lcp_image( array $attr, $attachment = null, $size
         return false;
     }
 
-    wd4_capture_lcp_preload_data_from_attr( $attr );
-
     global $wd4_lcp_candidate;
 
     if ( ! is_array( $wd4_lcp_candidate ) ) {
@@ -617,15 +143,12 @@ function wd4_should_prioritize_lcp_image( array $attr, $attachment = null, $size
     }
 
     $wd4_lcp_candidate = array(
-        'attachment_id' => $attachment_id,
+        'attachment_id' => wd4_normalize_attachment_id( $attachment ),
         'width'         => $width,
         'height'        => $height,
         'context'       => $context,
         'src'           => $src,
-        'srcset'        => $srcset,
-        'sizes'         => $sizes,
         'size'          => $size,
-        'is_main'       => $is_main_thumbnail,
     );
 
     $prioritized = true;
@@ -647,58 +170,7 @@ function wd4_adjust_lcp_image_attributes( array $attr, $attachment = null, $size
 
     return $attr;
 }
-add_filter( 'wp_get_attachment_image_attributes', 'wd4_adjust_lcp_image_attributes', PHP_INT_MAX, 4 );
-
-function wd4_get_lcp_candidate(): array {
-    global $wd4_lcp_candidate;
-
-    return ( is_array( $wd4_lcp_candidate ) ) ? $wd4_lcp_candidate : array();
-}
-
-function wd4_lcp_markup_matches_candidate( string $html, ?int $attachment_id = null ): bool {
-    if ( '' === $html ) {
-        return false;
-    }
-
-    $attachment_id = wd4_to_positive_int( $attachment_id );
-
-    if ( $attachment_id > 0 && wd4_markup_references_attachment( $html, $attachment_id ) ) {
-        return true;
-    }
-
-    $candidate = wd4_get_lcp_candidate();
-
-    if ( ! empty( $candidate ) ) {
-        $candidate_id  = wd4_to_positive_int( $candidate['attachment_id'] ?? 0 );
-        $candidate_src = isset( $candidate['src'] ) ? (string) $candidate['src'] : '';
-
-        if ( $candidate_id > 0 && wd4_markup_references_attachment( $html, $candidate_id ) ) {
-            return true;
-        }
-
-        if ( '' !== $candidate_src ) {
-            if ( false !== strpos( $html, $candidate_src ) ) {
-                return true;
-            }
-
-            $path = parse_url( $candidate_src, PHP_URL_PATH );
-            if ( $path ) {
-                $basename = basename( $path );
-                if ( $basename && false !== stripos( $html, $basename ) ) {
-                    return true;
-                }
-            }
-        }
-    }
-
-    $main_thumbnail_id = wd4_get_main_post_thumbnail_id();
-
-    if ( $main_thumbnail_id > 0 && wd4_markup_references_attachment( $html, $main_thumbnail_id ) ) {
-        return true;
-    }
-
-    return false;
-}
+add_filter( 'wp_get_attachment_image_attributes', 'wd4_adjust_lcp_image_attributes', 9999, 4 );
 
 function wd4_replace_or_add_img_attribute( string $html, string $name, string $value ): string {
     if ( '' === trim( $html ) ) {
@@ -725,137 +197,64 @@ function wd4_replace_or_add_img_attribute( string $html, string $name, string $v
     return ( null !== $result ) ? $result : $html;
 }
 
-function wd4_remove_img_attribute( string $html, string $name, int $limit = -1 ): string {
+function wd4_remove_img_attribute( string $html, string $name ): string {
     if ( '' === trim( $html ) ) {
         return $html;
     }
 
     $quoted_name = preg_quote( $name, '/' );
     $pattern     = sprintf( '#\\s%s(?:\\s*=\\s*(?:["\']).*?(?:["\'])|\\s*=\\s*[^>\\s]+)?#i', $quoted_name );
-    $limit       = ( 0 === $limit ) ? -1 : $limit;
-    $result      = preg_replace( $pattern, '', $html, $limit );
+    $result      = preg_replace( $pattern, '', $html, 1 );
 
     return ( null !== $result ) ? $result : $html;
 }
 
-function wd4_prioritize_img_html( string $html ): string {
-    if ( '' === trim( $html ) ) {
-        return $html;
-    }
-
-    $cleaned = wd4_remove_img_attribute( $html, 'loading' );
-    $cleaned = wd4_remove_img_attribute( $cleaned, 'fetchpriority' );
-    $cleaned = wd4_remove_img_attribute( $cleaned, 'decoding' );
-    $cleaned = wd4_remove_img_attribute( $cleaned, 'data-wp-lazy-loading' );
-
-    $updated = wd4_replace_or_add_img_attribute( $cleaned, 'loading', 'eager' );
-    $updated = wd4_replace_or_add_img_attribute( $updated, 'fetchpriority', 'high' );
-    $updated = wd4_replace_or_add_img_attribute( $updated, 'decoding', 'async' );
-
-    return $updated;
-}
-
-function wd4_force_lcp_image_html( string $html, int $attachment_id, bool $force = false ): string {
+function wd4_force_lcp_image_html( string $html, int $attachment_id ): string {
     if ( '' === $html || ! wd4_is_frontend_request() ) {
         return $html;
     }
 
-    if ( ! $force && ! wd4_lcp_markup_matches_candidate( $html, $attachment_id ) ) {
+    global $wd4_lcp_candidate;
+
+    if ( empty( $wd4_lcp_candidate ) ) {
+        return $html;
+    }
+
+    $candidate_id  = isset( $wd4_lcp_candidate['attachment_id'] ) ? (int) $wd4_lcp_candidate['attachment_id'] : 0;
+    $candidate_src = isset( $wd4_lcp_candidate['src'] ) ? (string) $wd4_lcp_candidate['src'] : '';
+
+    $matches_id  = ( $candidate_id > 0 && $attachment_id > 0 && $candidate_id === (int) $attachment_id );
+    $matches_src = ( '' !== $candidate_src && false !== strpos( $html, $candidate_src ) );
+
+    if ( ! $matches_id && ! $matches_src ) {
         return $html;
     }
 
     static $updated = false;
 
-    if ( $updated && ! $force ) {
+    if ( $updated ) {
         return $html;
     }
 
-    $prioritized = wd4_prioritize_img_html( $html );
+    $html = wd4_replace_or_add_img_attribute( $html, 'loading', 'eager' );
+    $html = wd4_replace_or_add_img_attribute( $html, 'fetchpriority', 'high' );
+    $html = wd4_replace_or_add_img_attribute( $html, 'decoding', 'async' );
+    $html = wd4_remove_img_attribute( $html, 'data-wp-lazy-loading' );
 
-    wd4_capture_lcp_preload_data_from_img_html( $prioritized );
+    $updated = true;
 
-    if ( $prioritized === $html ) {
-        return $html;
-    }
-
-    if ( ! $force ) {
-        $updated = true;
-    }
-
-    return $prioritized;
-}
-
-function wd4_prioritize_featured_lightbox_markup( string $html, bool &$processed ): string {
-    if ( $processed || '' === $html ) {
-        return $html;
-    }
-
-    if ( false === stripos( $html, 'featured-lightbox-trigger' ) ) {
-        return $html;
-    }
-
-    $pattern = '/(<div\b[^>]*class=(["\']).*?featured-lightbox-trigger.*?\2[^>]*>)(.*?)(<\/div>)/is';
-
-    $result = preg_replace_callback(
-        $pattern,
-        function ( array $matches ) use ( &$processed ) {
-            if ( $processed ) {
-                return $matches[0];
-            }
-
-            $inner = $matches[3];
-
-            $inner_result = preg_replace_callback(
-                '/<img\b[^>]*>/i',
-                function ( array $img_matches ) use ( &$processed ) {
-                    if ( $processed ) {
-                        return $img_matches[0];
-                    }
-
-                    $processed = true;
-
-                    $updated = wd4_prioritize_img_html( $img_matches[0] );
-
-                    wd4_capture_lcp_preload_data_from_img_html( $updated );
-
-                    return $updated;
-                },
-                $inner,
-                1,
-                $count
-            );
-
-            if ( $count < 1 || null === $inner_result ) {
-                return $matches[0];
-            }
-
-            return $matches[1] . $inner_result . $matches[4];
-        },
-        $html,
-        1,
-        $div_count
-    );
-
-    if ( null === $result || $div_count < 1 ) {
-        return $html;
-    }
-
-    return $result;
+    return $html;
 }
 
 function wd4_adjust_lcp_image_markup( string $html, int $attachment_id, $size, $icon, $attr ): string {
-    $force = wd4_is_main_post_thumbnail_id( $attachment_id );
-
-    return wd4_force_lcp_image_html( $html, $attachment_id, $force );
+    return wd4_force_lcp_image_html( $html, $attachment_id );
 }
-add_filter( 'wp_get_attachment_image', 'wd4_adjust_lcp_image_markup', PHP_INT_MAX, 5 );
+add_filter( 'wp_get_attachment_image', 'wd4_adjust_lcp_image_markup', 999, 5 );
 
 function wd4_adjust_post_thumbnail_markup( string $html, int $post_id, int $post_thumbnail_id, $size, $attr ): string {
-    $force = wd4_is_main_post_thumbnail_id( $post_thumbnail_id );
-
-    return wd4_force_lcp_image_html( $html, $post_thumbnail_id, $force );
+    return wd4_force_lcp_image_html( $html, $post_thumbnail_id );
 }
-add_filter( 'post_thumbnail_html', 'wd4_adjust_post_thumbnail_markup', PHP_INT_MAX, 5 );
+add_filter( 'post_thumbnail_html', 'wd4_adjust_post_thumbnail_markup', 999, 5 );
 
 function wd4_should_buffer_lcp_markup(): bool {
     if ( ! wd4_is_frontend_request() ) {
@@ -876,113 +275,36 @@ function wd4_should_buffer_lcp_markup(): bool {
 function wd4_adjust_lcp_markup_via_buffer( string $html ): string {
     static $processed = false;
 
-    if ( '' === $html ) {
+    if ( $processed || '' === $html ) {
         return $html;
     }
 
-    if ( $processed ) {
-        return wd4_maybe_inject_lcp_preload_link( $html );
-    }
-
-    $html = wd4_prioritize_featured_lightbox_markup( $html, $processed );
-
-    if ( $processed ) {
-        return wd4_maybe_inject_lcp_preload_link( $html );
-    }
-
     if ( false === stripos( $html, 'wp-post-image' ) ) {
-        return wd4_maybe_inject_lcp_preload_link( $html );
+        return $html;
     }
 
-    $pattern = '/<img\b[^>]*class=("|\').*?wp-post-image.*?\1[^>]*>/is';
+    $pattern = '/<img\\b[^>]*class=(["\']).*?wp-post-image.*?\1[^>]*>/is';
 
-    if ( ! preg_match_all( $pattern, $html, $matches, PREG_OFFSET_CAPTURE ) ) {
-        return wd4_maybe_inject_lcp_preload_link( $html );
+    if ( ! preg_match( $pattern, $html, $matches, PREG_OFFSET_CAPTURE ) ) {
+        return $html;
     }
 
-    $targets = $matches[0];
-    $chosen  = null;
+    $tag    = $matches[0][0];
+    $offset = (int) $matches[0][1];
 
-    foreach ( $targets as $match ) {
-        $fragment = $match[0];
-
-        if ( wd4_lcp_markup_matches_candidate( $fragment ) ) {
-            $chosen = $match;
-            break;
-        }
-    }
-
-    if ( null === $chosen ) {
-        $main_thumbnail_id = wd4_get_main_post_thumbnail_id();
-
-        if ( $main_thumbnail_id > 0 ) {
-            foreach ( $targets as $match ) {
-                if ( wd4_markup_references_attachment( $match[0], $main_thumbnail_id ) ) {
-                    $chosen = $match;
-                    break;
-                }
-            }
-        }
-    }
-
-    if ( null === $chosen && isset( $targets[0] ) ) {
-        $chosen = $targets[0];
-    }
-
-    if ( null === $chosen ) {
-        return wd4_maybe_inject_lcp_preload_link( $html );
-    }
-
-    $tag    = $chosen[0];
-    $offset = (int) $chosen[1];
-
-    $updated = wd4_prioritize_img_html( $tag );
-
-    wd4_capture_lcp_preload_data_from_img_html( $updated );
+    $updated = wd4_replace_or_add_img_attribute( $tag, 'loading', 'eager' );
+    $updated = wd4_replace_or_add_img_attribute( $updated, 'fetchpriority', 'high' );
+    $updated = wd4_replace_or_add_img_attribute( $updated, 'decoding', 'async' );
+    $updated = wd4_remove_img_attribute( $updated, 'data-wp-lazy-loading' );
 
     if ( $updated === $tag ) {
-        return wd4_maybe_inject_lcp_preload_link( $html );
+        return $html;
     }
 
     $processed = true;
 
-    $replaced = substr_replace( $html, $updated, $offset, strlen( $tag ) );
-
-    if ( false === $replaced ) {
-        return wd4_maybe_inject_lcp_preload_link( $html );
-    }
-
-    return wd4_maybe_inject_lcp_preload_link( $replaced );
+    return substr_replace( $html, $updated, $offset, strlen( $tag ) );
 }
-
-function wd4_disable_lazy_loading_for_lcp_image( $value, string $image = '', string $context = '' ) {
-    if ( ! wd4_is_frontend_request() ) {
-        return $value;
-    }
-
-    if ( ! $value ) {
-        return $value;
-    }
-
-    if ( '' === $image ) {
-        return $value;
-    }
-
-    static $disabled = false;
-
-    if ( $disabled ) {
-        return $value;
-    }
-
-    if ( ! wd4_lcp_markup_matches_candidate( $image ) ) {
-        return $value;
-    }
-
-    $disabled = true;
-
-    return false;
-}
-add_filter( 'wp_img_tag_add_loading_attr', 'wd4_disable_lazy_loading_for_lcp_image', PHP_INT_MAX, 3 );
 
 function wd4_bootstrap_lcp_markup_buffer(): void {
     static $started = false;
@@ -1009,253 +331,8 @@ function wd4_allow_fetchpriority_attribute( array $allowed_tags, string $context
 }
 add_filter( 'wp_kses_allowed_html', 'wd4_allow_fetchpriority_attribute', 10, 2 );
 
-/**
- * -------------------------------------------------------------------------
- * YouTube facade embeds
- * -------------------------------------------------------------------------
- */
-function wd4_mark_youtube_facade_needed(): void {
-    global $wd4_has_youtube_facade;
 
-    $wd4_has_youtube_facade = true;
-}
 
-function wd4_has_youtube_facade(): bool {
-    global $wd4_has_youtube_facade;
-
-    return ! empty( $wd4_has_youtube_facade );
-}
-
-function wd4_extract_youtube_id( string $url ): string {
-    if ( '' === $url ) {
-        return '';
-    }
-
-    $parts = wp_parse_url( $url );
-    if ( empty( $parts['host'] ) ) {
-        return '';
-    }
-
-    $host = strtolower( $parts['host'] );
-    $path = isset( $parts['path'] ) ? trim( (string) $parts['path'], '/' ) : '';
-    $video_id = '';
-
-    if ( false !== strpos( $host, 'youtu.be' ) ) {
-        $video_id = $path;
-    } elseif ( false !== strpos( $host, 'youtube.com' ) || false !== strpos( $host, 'youtube-nocookie.com' ) ) {
-        if ( isset( $parts['query'] ) ) {
-            parse_str( $parts['query'], $query_args );
-            if ( ! empty( $query_args['v'] ) ) {
-                $video_id = (string) $query_args['v'];
-            }
-        }
-
-        if ( '' === $video_id && 0 === strpos( $path, 'embed/' ) ) {
-            $video_id = substr( $path, 6 );
-        }
-
-        if ( '' === $video_id && 0 === strpos( $path, 'shorts/' ) ) {
-            $video_id = substr( $path, 7 );
-        }
-
-        if ( '' === $video_id && '' !== $path ) {
-            $segments = explode( '/', $path );
-            $video_id = end( $segments );
-        }
-    }
-
-    if ( '' === $video_id ) {
-        return '';
-    }
-
-    $video_id = preg_replace( '/[^a-zA-Z0-9_-]/', '', $video_id );
-
-    if ( ! is_string( $video_id ) || '' === $video_id ) {
-        return '';
-    }
-
-    return $video_id;
-}
-
-function wd4_extract_iframe_title( string $html ): string {
-    if ( '' === $html ) {
-        return '';
-    }
-
-    if ( ! preg_match( '/title=(["\'])(.*?)\1/i', $html, $match ) ) {
-        return '';
-    }
-
-    $charset = get_bloginfo( 'charset' );
-    if ( ! $charset ) {
-        $charset = 'UTF-8';
-    }
-
-    return html_entity_decode( trim( (string) $match[2] ), ENT_QUOTES, $charset );
-}
-
-function wd4_prepare_youtube_facade( string $html, string $url, array $attr = array() ): string {
-    if ( '' === trim( $html ) || '' === trim( $url ) ) {
-        return $html;
-    }
-
-    if ( ! wd4_is_frontend_request() ) {
-        return $html;
-    }
-
-    if ( false !== strpos( $html, 'wd4-youtube-facade' ) ) {
-        return $html;
-    }
-
-    $video_id = wd4_extract_youtube_id( $url );
-    if ( '' === $video_id ) {
-        return $html;
-    }
-
-    $title = '';
-    if ( isset( $attr['title'] ) ) {
-        $title = (string) $attr['title'];
-    }
-
-    if ( '' === $title && isset( $attr['aria-label'] ) ) {
-        $title = (string) $attr['aria-label'];
-    }
-
-    if ( '' === $title ) {
-        $title = wd4_extract_iframe_title( $html );
-    }
-
-    $title = trim( wp_strip_all_tags( $title ) );
-
-    if ( '' === $title ) {
-        $title = __( 'YouTube video', 'foxiz-child' );
-    }
-
-    $button_label = sprintf( __( 'Play video: %s', 'foxiz-child' ), $title );
-    $thumbnail    = sprintf( 'https://i.ytimg.com/vi/%s/hqdefault.jpg', rawurlencode( $video_id ) );
-
-    $facade  = '<div class="wd4-youtube-facade" data-youtube-id="' . esc_attr( $video_id ) . '" data-youtube-title="' . esc_attr( $title ) . '" data-youtube-params="autoplay=1&amp;rel=0">';
-    $facade .= '<div class="wd4-youtube-facade__inner">';
-    $facade .= '<button type="button" class="wd4-youtube-facade__trigger" aria-label="' . esc_attr( $button_label ) . '">';
-    $facade .= '<span class="wd4-youtube-facade__thumb"><img src="' . esc_url( $thumbnail ) . '" alt="' . esc_attr( $title ) . '" decoding="async" loading="lazy"></span>';
-    $facade .= '<span class="wd4-youtube-facade__play" aria-hidden="true"></span>';
-    $facade .= '</button></div>';
-    $facade .= '<noscript>' . $html . '</noscript>';
-    $facade .= '</div>';
-
-    wd4_mark_youtube_facade_needed();
-
-    return $facade;
-}
-
-function wd4_embed_oembed_youtube_facade( $html, $url, $attr, $post_id ) {
-    unset( $post_id );
-
-    return wd4_prepare_youtube_facade( (string) $html, (string) $url, (array) $attr );
-}
-add_filter( 'embed_oembed_html', 'wd4_embed_oembed_youtube_facade', 10, 4 );
-
-function wd4_render_block_youtube_facade( string $block_content, array $block ): string {
-    if ( '' === $block_content ) {
-        return $block_content;
-    }
-
-    if ( empty( $block['blockName'] ) ) {
-        return $block_content;
-    }
-
-    $block_name = $block['blockName'];
-
-    if ( 'core-embed/youtube' === $block_name ) {
-        $attrs = isset( $block['attrs'] ) ? (array) $block['attrs'] : array();
-
-        return wd4_prepare_youtube_facade( $block_content, isset( $attrs['url'] ) ? (string) $attrs['url'] : '', $attrs );
-    }
-
-    if ( 'core/embed' === $block_name ) {
-        $attrs = isset( $block['attrs'] ) ? (array) $block['attrs'] : array();
-
-        if ( isset( $attrs['providerNameSlug'] ) && 'youtube' === $attrs['providerNameSlug'] ) {
-            return wd4_prepare_youtube_facade( $block_content, isset( $attrs['url'] ) ? (string) $attrs['url'] : '', $attrs );
-        }
-    }
-
-    return $block_content;
-}
-add_filter( 'render_block', 'wd4_render_block_youtube_facade', 10, 2 );
-
-function wd4_output_youtube_facade_styles(): void {
-    if ( ! wd4_has_youtube_facade() ) {
-        return;
-    }
-
-    $css = '.wd4-youtube-facade{position:relative;max-width:100%;}.wd4-youtube-facade__inner{position:relative;width:100%;background-color:#000;border-radius:12px;overflow:hidden;}.wd4-youtube-facade__inner::before{content:"";display:block;padding-top:56.25%;}.wd4-youtube-facade__trigger{position:absolute;inset:0;display:flex;align-items:center;justify-content:center;width:100%;height:100%;border:0;background:transparent;padding:0;cursor:pointer;}.wd4-youtube-facade__trigger:focus{outline:2px solid #fff;outline-offset:2px;}.wd4-youtube-facade__thumb{position:absolute;inset:0;}.wd4-youtube-facade__thumb img{width:100%;height:100%;object-fit:cover;display:block;}.wd4-youtube-facade__play{position:relative;z-index:2;width:68px;height:48px;background-color:rgba(0,0,0,.7);border-radius:14px;display:flex;align-items:center;justify-content:center;transition:transform .2s ease,background-color .2s ease;}.wd4-youtube-facade__play::before{content:"";display:block;margin-left:4px;border-style:solid;border-width:12px 0 12px 18px;border-color:transparent transparent transparent #fff;}.wd4-youtube-facade__trigger:hover .wd4-youtube-facade__play,.wd4-youtube-facade__trigger:focus .wd4-youtube-facade__play{background-color:#ff184e;transform:scale(1.05);}.wd4-youtube-facade.is-active .wd4-youtube-facade__inner::before{display:none;}.wd4-youtube-facade__iframe{position:absolute;inset:0;width:100%;height:100%;border:0;}';
-
-    printf( "<style id='wd4-youtube-facade'>%s</style>\n", $css );
-}
-add_action( 'wp_head', 'wd4_output_youtube_facade_styles', 60 );
-
-function wd4_output_youtube_facade_script(): void {
-    if ( ! wd4_has_youtube_facade() ) {
-        return;
-    }
-
-    $script = <<<'JS'
-(function(){
-"use strict";
-var init=function(){
-    var containers=document.querySelectorAll('.wd4-youtube-facade');
-    if(!containers.length){
-        return;
-    }
-    containers.forEach(function(container){
-        var trigger=container.querySelector('.wd4-youtube-facade__trigger');
-        var inner=container.querySelector('.wd4-youtube-facade__inner');
-        var videoId=container.getAttribute('data-youtube-id');
-        if(!trigger||!inner||!videoId){
-            return;
-        }
-        var activated=false;
-        var title=container.getAttribute('data-youtube-title')||'YouTube video';
-        var params=container.getAttribute('data-youtube-params')||'autoplay=1&rel=0';
-        var activate=function(){
-            if(activated){
-                return;
-            }
-            activated=true;
-            var iframe=document.createElement('iframe');
-            iframe.className='wd4-youtube-facade__iframe';
-            iframe.setAttribute('allow','accelerometer; autoplay; clipboard-write; encrypted-media; gyroscope; picture-in-picture; web-share');
-            iframe.setAttribute('allowfullscreen','');
-            iframe.setAttribute('loading','lazy');
-            iframe.setAttribute('title',title);
-            iframe.src='https://www.youtube.com/embed/'+encodeURIComponent(videoId)+'?'+params;
-            inner.innerHTML='';
-            inner.appendChild(iframe);
-            container.classList.add('is-active');
-        };
-        trigger.addEventListener('click',function(){
-            activate();
-        });
-        trigger.addEventListener('keydown',function(event){
-            if('Enter'===event.key||' '===event.key){
-                event.preventDefault();
-                activate();
-            }
-        });
-    });
-};
-if(document.readyState==='loading'){
-    document.addEventListener('DOMContentLoaded',init);
-}else{
-    init();
-}
-}());
-JS;
-
-    printf( "<script id='wd4-youtube-facade'>%s</script>\n", $script );
-}
-add_action( 'wp_footer', 'wd4_output_youtube_facade_script', 20 );
 
 
 
@@ -1541,218 +618,6 @@ add_action( 'wp_enqueue_scripts', 'wd4_enqueue_defer_css_script', 200 );
 
 
 
-/**
- * -------------------------------------------------------------------------
- * Archive and listing DOM optimizations
- * -------------------------------------------------------------------------
- */
-function wd4_should_minimize_loop_dom(): bool {
-    if ( ! wd4_is_frontend_request() ) {
-        return false;
-    }
-
-    if ( is_feed() || is_404() ) {
-        return false;
-    }
-
-    if ( is_singular() ) {
-        return false;
-    }
-
-    if ( ! ( is_home() || is_archive() || is_search() ) ) {
-        return false;
-    }
-
-    $post_type = get_post_type();
-    if ( $post_type && 'post' !== $post_type ) {
-        return false;
-    }
-
-    return (bool) apply_filters( 'wd4_minimize_loop_dom', true );
-}
-
-function wd4_normalize_summary_source( string $content ): string {
-    $excerpt            = '';
-    $can_reuse_excerpt  = true;
-
-    if ( function_exists( 'doing_filter' ) && doing_filter( 'get_the_excerpt' ) ) {
-        $can_reuse_excerpt = false;
-    }
-
-    if ( $can_reuse_excerpt ) {
-        $excerpt = get_the_excerpt();
-        if ( is_string( $excerpt ) ) {
-            $excerpt = trim( $excerpt );
-        } else {
-            $excerpt = '';
-        }
-    }
-
-    if ( '' === $excerpt ) {
-        $excerpt = $content;
-    }
-
-    $excerpt = strip_shortcodes( $excerpt );
-    $excerpt = wp_strip_all_tags( $excerpt, true );
-    $excerpt = preg_replace( '/\s+/u', ' ', $excerpt );
-    $excerpt = is_string( $excerpt ) ? trim( $excerpt ) : '';
-
-    return $excerpt;
-}
-
-function wd4_generate_loop_summary( string $content ): string {
-    static $cache = array();
-
-    $post_id = get_the_ID();
-    if ( $post_id && isset( $cache[ $post_id ] ) ) {
-        return $cache[ $post_id ];
-    }
-
-    $summary = wd4_normalize_summary_source( $content );
-
-    if ( '' === $summary ) {
-        if ( $post_id ) {
-            $cache[ $post_id ] = '';
-        }
-
-        return '';
-    }
-
-    $word_limit = (int) apply_filters( 'wd4_loop_summary_word_count', 55, $post_id );
-    if ( $word_limit > 0 ) {
-        $summary = wp_trim_words( $summary, $word_limit, '&hellip;' );
-    }
-
-    $summary = esc_html( $summary );
-
-    if ( $post_id && apply_filters( 'wd4_loop_summary_append_read_more', true, $post_id ) ) {
-        $permalink = get_permalink( $post_id );
-        if ( $permalink ) {
-            $summary .= sprintf(
-                ' <a class="wd4-archive-summary__more" href="%s">%s</a>',
-                esc_url( $permalink ),
-                esc_html__( 'Read more', 'foxiz-child' )
-            );
-        }
-    }
-
-    if ( $post_id ) {
-        $cache[ $post_id ] = $summary;
-    }
-
-    return $summary;
-}
-
-function wd4_reduce_loop_dom( string $content ): string {
-    if ( '' === $content ) {
-        return $content;
-    }
-
-    if ( ! in_the_loop() || ! is_main_query() ) {
-        return $content;
-    }
-
-    if ( post_password_required() ) {
-        return $content;
-    }
-
-    if ( ! wd4_should_minimize_loop_dom() ) {
-        return $content;
-    }
-
-    $summary = wd4_generate_loop_summary( $content );
-
-    return '' !== $summary ? $summary : $content;
-}
-add_filter( 'the_content', 'wd4_reduce_loop_dom', 5 );
-
-
-
-
-function wd4_streamline_archive_excerpt( string $excerpt, $post ): string {
-    if ( ! wd4_should_minimize_loop_dom() ) {
-        return $excerpt;
-    }
-
-    if ( ! ( $post instanceof WP_Post ) ) {
-        return $excerpt;
-    }
-
-    if ( post_password_required( $post ) ) {
-        return $excerpt;
-    }
-
-    $excerpt_string = (string) $excerpt;
-    $has_excerpt    = '' !== trim( $excerpt_string );
-    $source         = $has_excerpt ? $excerpt_string : (string) get_post_field( 'post_content', $post );
-    $summary = wd4_generate_loop_summary( $source );
-
-    return '' !== $summary ? $summary : $excerpt;
-}
-add_filter( 'get_the_excerpt', 'wd4_streamline_archive_excerpt', 9, 2 );
-
-
-
-function wd4_limit_archive_excerpt_length( int $length ): int {
-    if ( ! wd4_should_minimize_loop_dom() ) {
-        return $length;
-    }
-
-    $preferred = (int) apply_filters( 'wd4_archive_excerpt_length', 28 );
-
-    return $preferred > 0 ? $preferred : $length;
-}
-add_filter( 'excerpt_length', 'wd4_limit_archive_excerpt_length', 999 );
-
-
-
-function wd4_tighten_loop_summary_word_count( int $count ): int {
-    $preferred = (int) apply_filters( 'wd4_preferred_loop_summary_word_count', 32 );
-
-    return $preferred > 0 ? $preferred : $count;
-}
-add_filter( 'wd4_loop_summary_word_count', 'wd4_tighten_loop_summary_word_count', 10, 1 );
-
-add_filter( 'wd4_loop_summary_append_read_more', '__return_false' );
-
-function wd4_shrink_listing_post_counts( WP_Query $query ): void {
-    if ( is_admin() || ( function_exists( 'wp_doing_ajax' ) && wp_doing_ajax() ) ) {
-        return;
-    }
-
-    if ( ! ( $query instanceof WP_Query ) || ! $query->is_main_query() ) {
-        return;
-    }
-
-    if ( $query->is_home() && ! $query->is_feed() ) {
-        $home_limit = (int) apply_filters( 'wd4_home_posts_per_page', 6 );
-        if ( $home_limit > 0 ) {
-            $query->set( 'posts_per_page', $home_limit );
-        }
-        $query->set( 'ignore_sticky_posts', true );
-        return;
-    }
-
-    if ( $query->is_search() ) {
-        $search_limit = (int) apply_filters( 'wd4_search_posts_per_page', 10 );
-        if ( $search_limit > 0 ) {
-            $query->set( 'posts_per_page', $search_limit );
-        }
-        return;
-    }
-
-    if ( $query->is_category() || $query->is_tag() || $query->is_tax() || $query->is_post_type_archive( 'post' ) ) {
-        $archive_limit = (int) apply_filters( 'wd4_archive_posts_per_page', 8 );
-        if ( $archive_limit > 0 ) {
-            $query->set( 'posts_per_page', $archive_limit );
-        }
-    }
-}
-add_action( 'pre_get_posts', 'wd4_shrink_listing_post_counts' );
-
-
-
-
 
 
 
@@ -1853,36 +718,6 @@ function wd4_cleanup_head_links(): void {
     }
 }
 add_action( 'init', 'wd4_cleanup_head_links', 8 );
-
-
-
-function wd4_optimize_google_font_loader_src( string $src, string $handle ): string {
-    if ( false === strpos( $src, 'fonts.googleapis.com' ) ) {
-        return $src;
-    }
-
-    if ( false !== strpos( $src, 'display=' ) ) {
-        return $src;
-    }
-
-    return add_query_arg( 'display', 'swap', $src );
-}
-add_filter( 'style_loader_src', 'wd4_optimize_google_font_loader_src', 15, 2 );
-
-function wd4_disable_global_block_styles(): void {
-    if ( ! wd4_is_frontend_request() ) {
-        return;
-    }
-
-    remove_action( 'wp_enqueue_scripts', 'wp_enqueue_global_styles' );
-    remove_action( 'wp_footer', 'wp_enqueue_global_styles', 1 );
-    remove_action( 'wp_body_open', 'wp_global_styles_render_svg_filters' );
-
-    add_filter( 'should_load_separate_core_block_assets', '__return_true' );
-}
-add_action( 'init', 'wd4_disable_global_block_styles', 9 );
-
-
 
 function wd4_disable_wp_embed(): void {
     if ( ! wd4_is_frontend_request() ) {
@@ -2051,15 +886,6 @@ function wd4_get_icon_font_url(): string {
     return (string) apply_filters( 'wd4_icon_font_url', $url );
 }
 
-
-function wd4_get_icon_stylesheet_url(): string {
-    $url = 'https://aistudynow.com/wp-content/themes/css/header/single/icon-helpers.css?ver=2.5.0';
-
-    return (string) apply_filters( 'wd4_icon_stylesheet_url', $url );
-}
-
-
-
 function wd4_should_lazy_load_icon_font(): bool {
     $default = true;
 
@@ -2143,19 +969,7 @@ function wd4_output_icon_font_preload(): void {
 }
 add_action( 'wp_head', 'wd4_output_icon_font_preload', 4 );
 
-
-function wd4_disable_icon_font_lazy_loading( bool $enabled ): bool {
-    if ( ! wd4_is_frontend_request() ) {
-        return $enabled;
-    }
-
-    return false;
-}
-add_filter( 'wd4_lazy_icon_font', 'wd4_disable_icon_font_lazy_loading', 20 );
-
-
-
-function wd4_enqueue_lazy_loader_script(): void {
+function wd4_output_lazy_icon_font_loader(): void {
     if ( ! wd4_is_frontend_request() ) {
         return;
     }
@@ -2169,31 +983,24 @@ function wd4_enqueue_lazy_loader_script(): void {
         return;
     }
 
-    
+    $font_face = wd4_get_icon_font_face_css( $href );
+    if ( '' === $font_face ) {
+        return;
+    }
 
-$handle = 'wd4-lazy-loader';
-    $src    = trailingslashit( get_stylesheet_directory_uri() ) . 'js/lazy.js';
-    $path   = trailingslashit( get_stylesheet_directory() ) . 'js/lazy.js';
-    $ver    = file_exists( $path ) ? (string) filemtime( $path ) : null;
+    $css_json = wp_json_encode( $font_face );
+    if ( ! $css_json ) {
+        return;
+    }
 
-    wp_register_script( $handle, $src, array(), $ver, true );
-
-    $config = array(
-        'iconFontUrl'    => esc_url_raw( $href ),
-        'iconFontFamily' => 'ruby-icon',
-        'styleId'        => 'wd4-icon-font-face',
-        'timeout'        => 1200,
-        'fallbackDelay'  => 120,
+    $script = sprintf(
+        '(function(){var css=%1$s,family="ruby-icon";if(document.fonts&&document.fonts.check&&document.fonts.check("1em "+family)){return;}var inject=function(){if(document.getElementById("wd4-icon-font-face")){return;}var style=document.createElement("style");style.id="wd4-icon-font-face";style.textContent=css;(document.head||document.documentElement).appendChild(style);if(document.fonts&&document.fonts.load){document.fonts.load("1em "+family);}};var schedule=window.requestIdleCallback?function(cb){requestIdleCallback(cb,{timeout:1200});}:function(cb){setTimeout(cb,120);};var kickoff=function(){schedule(inject);};if(document.readyState==="loading"){document.addEventListener("DOMContentLoaded",kickoff,{once:true});}else{kickoff();}})();',
+        $css_json
     );
 
-    wp_localize_script( $handle, 'wd4LazyLoader', $config );
-    wp_enqueue_script( $handle );
+    printf( "<script id='wd4-icon-font-loader'>%s</script>\n", $script );
 }
-add_action( 'wp_enqueue_scripts', 'wd4_enqueue_lazy_loader_script', 200 );
-
-
-
-    
+add_action( 'wp_footer', 'wd4_output_lazy_icon_font_loader', 5 );
 
 function wd4_output_icon_font_noscript(): void {
     if ( ! wd4_is_frontend_request() ) {
@@ -2585,9 +1392,8 @@ function wd4_enqueue_styles(): void {
 
     if ( is_singular( 'post' ) ) {
         wp_enqueue_style( 'main',        'https://aistudynow.com/wp-content/themes/css/header/main.css',               array(), '77779999880.0' );
-        wp_enqueue_style( 'icon',        'https://aistudynow.com/wp-content/themes/css/header/single/icon-helpers.css', array(), '77779999880.0' );
-        wp_enqueue_style( 'single',      'https://aistudynow.com/wp-content/themes/css/header/single/single.css',      array(), '887667876655777999980.0' );
-        wp_enqueue_style( 'sidebar',     'https://aistudynow.com/wp-content/themes/css/header/single/sidebar.css',     array(), '8667876655777999980.0' );
+        wp_enqueue_style( 'single',      'https://aistudynow.com/wp-content/themes/css/header/single/single.css',      array(), '998667876655777999980.0' );
+        wp_enqueue_style( 'sidebar',     'https://aistudynow.com/wp-content/themes/css/header/single/sidebar.css',     array(), '667876655777999980.0' );
         wp_enqueue_style( 'email',       'https://aistudynow.com/wp-content/themes/css/header/single/email.css',       array(), '667876655777999980.0' );
         wp_enqueue_style( 'download',    'https://aistudynow.com/wp-content/themes/css/header/single/download.css',    array(), '667876655777999980.0' );
         wp_enqueue_style( 'sharesingle', 'https://aistudynow.com/wp-content/themes/css/header/single/sharesingle.css', array(), '667876655777999980.0' );
@@ -3096,12 +1902,12 @@ function my_detect_view_context(): string {
 
 function my_get_allowed_js_handles_by_context( string $context ): array {
     $allowed = array(
-        'home'     => array( 'main', 'pagination', 'lazy', 'foxiz-core-js', 'wd-defer-css' ),
-        'category' => array( 'main', 'pagination', 'lazy', 'wd-defer-css' ),
+        'home'     => array( 'main', 'pagination', 'wd-defer-css' ),
+        'category' => array( 'main', 'pagination', 'wd-defer-css' ),
         'search'   => array(),
         'author'   => array(),
-        'post'     => array( 'comment', 'download', 'main', 'foxiz-core-js', 'lazy', 'pagination', 'foxiz-core', 'wd-defer-css' ),
-        'page'     => array( 'comment', 'download', 'main', 'lazy', 'pagination', 'foxiz-core', 'wd-defer-css' ),
+        'post'     => array( 'comment', 'download', 'main', 'pagination', 'foxiz-core', 'wd-defer-css' ),
+        'page'     => array( 'comment', 'download', 'main', 'pagination', 'foxiz-core', 'wd-defer-css' ),
         'other'    => array(),
     );
 
@@ -3115,17 +1921,14 @@ function my_register_context_only_scripts(): void {
     $context = my_detect_view_context();
 
     $main          = 'https://aistudynow.com/wp-content/themes/js/main.js';
-    $lazy          = 'https://aistudynow.com/wp-content/themes/js/lazy.js';
     $pagination_js = 'https://aistudynow.com/wp-content/themes/js/pagination.js';
-    $foxiz_core    = 'https://aistudynow.com/wp-content/themes/js/core.js';
     $comment       = 'https://aistudynow.com/wp-content/themes/js/comment.js';
     $download      = 'https://aistudynow.com/wp-content/plugins/newsletter-11/assets/js/download-form-validation.js';
     $core_js       = 'https://aistudynow.com/wp-content/themes/js/core.js';
     $defer_js      = 'https://aistudynow.com/wp-content/themes/js/defer-css.js';
-  
 
     if ( 'home' === $context ) {
-        wp_enqueue_script( 'main', $main, array(), '1.0.0', true );
+        wp_enqueue_script( 'main', $main, array(), '2.0.0', true );
         wp_enqueue_script( 'pagination', $pagination_js, array(), '1.0.1', true );
         wp_enqueue_script( 'wd-defer-css', $defer_js, array(), '2.0.0', true );
 
@@ -3218,11 +2021,10 @@ JS,
 
     if ( in_array( $context, array( 'post', 'page' ), true ) ) {
         wp_enqueue_script( 'comment', $comment, array(), '1.0.0', true );
-        wp_enqueue_script( 'main', $main, array(), '2.0.0', true );
-        wp_enqueue_script( 'lazy', $lazy, array(), '2.0.0', true );
+        wp_enqueue_script( 'main', $main, array(), '6.0.0', true );
         wp_enqueue_script( 'pagination', $pagination_js, array(), '5.0.1', true );
         wp_enqueue_script( 'download', $download, array(), '1.0.0', true );
-        wp_enqueue_script( 'foxiz-core-js', $foxiz_core, array(), '1.0.0', true );
+        wp_enqueue_script( 'foxiz-core', $core_js, array(), '1.0.0', true );
         wp_enqueue_script( 'wd-defer-css', $defer_js, array(), '2.0.0', true );
     }
 }
@@ -3326,7 +2128,18 @@ add_filter( 'script_loader_tag', function ( string $tag, string $handle, string 
 }, PHP_INT_MAX, 3 );
 
 
+add_action( 'wp_print_footer_scripts', function (): void {
+    $context = my_detect_view_context();
+    if ( ! in_array( $context, array( 'post', 'page' ), true ) ) {
+        return;
+    }
 
+    global $wp_scripts;
+    $printed = ( $wp_scripts && ! empty( $wp_scripts->done ) && in_array( 'foxiz-core', (array) $wp_scripts->done, true ) );
+    if ( ! $printed ) {
+        echo '<script defer id="foxiz-core-js" src="https://aistudynow.com/wp-content/themes/js/core.js?ver=4.0.0"></script>' . "\n";
+    }
+}, PHP_INT_MAX );
 
 
 /**
