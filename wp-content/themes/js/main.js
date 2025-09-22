@@ -747,7 +747,7 @@ var FOXIZ_MAIN_SCRIPT = (function (Module) {
       ? forceOpen
       : store.button.getAttribute('aria-expanded') !== 'true';
 
-      if (!shouldOpen) {
+    if (!shouldOpen) {
       if (store.current) {
         store.current.remove();
         store.current = null;
@@ -773,52 +773,32 @@ var FOXIZ_MAIN_SCRIPT = (function (Module) {
     if (akismetField) akismetField.value = String(Date.now());
   };
 
-  Module.deferAds = function () {
-    const adSlots = [];
-    $$('.ad-wrap ins.adsbygoogle').forEach((ins) => {
-      const host = ins.parentElement;
-      if (!host) return;
-      const wrapper = safeClosest(host, '.ad-wrap', doc) || host;
-      const data = {
-        host,
-        wrapper,
-        client: ins.getAttribute('data-ad-client') || '',
-        slot: ins.getAttribute('data-ad-slot') || '',
-        format: ins.getAttribute('data-ad-format') || '',
-        fullWidth: ins.getAttribute('data-full-width-responsive') || '',
-        style: ins.getAttribute('style') || 'display:block',
-      };
+  
 
-      const script = wrapper.querySelector('script');
-      if (script && script.textContent && script.textContent.includes('adsbygoogle')) {
-        script.remove();
+Module.deferAds = function () {
+    const ads = $$('.ad-wrap ins.adsbygoogle');
+    if (!ads.length) return;
+
+    const slots = new Map();
+    const immediate = [];
+    const processed = [];
+
+    const renderOnce = (ins, wrapper) => {
+      if (!ins) return;
+      if (ins.dataset.adsbygoogleStatus && ins.dataset.adsbygoogleStatus !== 'unfilled') {
+        if (wrapper) wrapper.dataset.lazyAd = 'loaded';
+        processed.push({ ins, wrapper });
+        return;
       }
-
-      wrapper.dataset.lazyAd = 'pending';
-      host.dataset.adClient = data.client;
-      host.dataset.adSlot = data.slot;
-      host.dataset.adFormat = data.format;
-      host.dataset.adFullWidth = data.fullWidth;
-      host.dataset.adStyle = data.style;
-      ins.remove();
-      adSlots.push({ host, wrapper });
-    });
-
-    if (!adSlots.length) return;
-
-    const renderAd = (slot) => {
-      const { host, wrapper } = slot;
-      if (!host || host.dataset.adRendered === 'true') return;
-      const ins = doc.createElement('ins');
-      ins.className = 'adsbygoogle';
-      ins.style.cssText = host.dataset.adStyle || 'display:block';
-      if (host.dataset.adClient) ins.setAttribute('data-ad-client', host.dataset.adClient);
-      if (host.dataset.adSlot) ins.setAttribute('data-ad-slot', host.dataset.adSlot);
-      if (host.dataset.adFormat) ins.setAttribute('data-ad-format', host.dataset.adFormat);
-      if (host.dataset.adFullWidth) ins.setAttribute('data-full-width-responsive', host.dataset.adFullWidth);
-      host.appendChild(ins);
-      host.dataset.adRendered = 'true';
+      if (ins.dataset.adLazyRendered === 'true') {
+        if (wrapper && wrapper.dataset.lazyAd === 'pending') wrapper.dataset.lazyAd = 'loaded';
+        processed.push({ ins, wrapper });
+        return;
+      }
+      ins.dataset.adLazyRendered = 'true';
+      if (!ins.dataset.loaded) ins.dataset.loaded = '1';
       if (wrapper) wrapper.dataset.lazyAd = 'loaded';
+      processed.push({ ins, wrapper });
       try {
         (win.adsbygoogle = win.adsbygoogle || []).push({});
       } catch (err) {
@@ -826,30 +806,70 @@ var FOXIZ_MAIN_SCRIPT = (function (Module) {
       }
     };
 
+    ads.forEach((ins) => {
+      if (!ins) return;
+
+      if (ins.dataset.adsbygoogleStatus && ins.dataset.adsbygoogleStatus !== 'unfilled') {
+        const wrapper = safeClosest(ins, '.ad-wrap', doc);
+        if (wrapper) wrapper.dataset.lazyAd = 'loaded';
+        return;
+      }
+
+      if (ins.dataset.adLazyRendered === 'true') return;
+
+      const wrapper = safeClosest(ins, '.ad-wrap', doc);
+      if (wrapper && !wrapper.dataset.lazyAd) wrapper.dataset.lazyAd = 'pending';
+
+      if (ins.dataset.loaded === '1') {
+        if (wrapper) wrapper.dataset.lazyAd = 'loaded';
+        ins.dataset.adLazyRendered = 'true';
+        return;
+      }
+
+      if (!('IntersectionObserver' in win)) {
+        immediate.push({ ins, wrapper });
+        return;
+      }
+
+      if (ins.dataset.adLazyBound === 'true') return;
+      ins.dataset.adLazyBound = 'true';
+
+      const target = wrapper || ins;
+      const rect = target.getBoundingClientRect();
+      const viewH = win.innerHeight || doc.documentElement.clientHeight || 0;
+      if (rect.top <= viewH + 200) {
+        renderOnce(ins, wrapper);
+        return;
+      }
+
+      slots.set(target, { ins, wrapper });
+    });
+
     if (!('IntersectionObserver' in win)) {
-      adSlots.forEach(renderAd);
+      immediate.forEach(({ ins, wrapper }) => renderOnce(ins, wrapper));
       return;
     }
 
-    const map = new WeakMap();
+    immediate.forEach(({ ins, wrapper }) => renderOnce(ins, wrapper));
+
+    if (!slots.size) return;
+
     const observer = new IntersectionObserver((entries, obs) => {
       entries.forEach((entry) => {
         if (!entry.isIntersecting) return;
-        const slot = map.get(entry.target);
-        if (slot) {
-          renderAd(slot);
-          obs.unobserve(entry.target);
-        }
+        const slot = slots.get(entry.target);
+        if (!slot) return;
+        renderOnce(slot.ins, slot.wrapper);
+        obs.unobserve(entry.target);
+        slots.delete(entry.target);
       });
     }, { rootMargin: '200px 0px' });
 
-    adSlots.forEach((slot) => {
-      const target = slot.wrapper || slot.host;
-      map.set(target, slot);
+    slots.forEach((slot, target) => {
       observer.observe(target);
     });
 
-    this.lazyAds = adSlots;
+    this.lazyAds = processed.concat(Array.from(slots.values()));
   };
 
   Module.optimizeDomSize = function () {
@@ -867,6 +887,8 @@ var FOXIZ_MAIN_SCRIPT = (function (Module) {
     this.deferAds();
   };
 
+
+  
   /* ===========================
    * FONT RESIZER
    * =========================== */
@@ -1354,7 +1376,7 @@ var FOXIZ_MAIN_SCRIPT = (function (Module) {
    * =========================== */
   Module.loadYoutubeIframe = function () {
     const facades = $$('.yt-facade, .wp-block-embed__wrapper.has-yt-facade');
-    const activate = (wrapper, opts = {}) => {
+     const activate = (wrapper, facade, opts = {}) => {
       if (!wrapper || wrapper.dataset.embedLoaded === 'true') return;
       const videoId = opts.videoId || wrapper.dataset.videoId;
       let src = opts.embed || wrapper.dataset.embed;
@@ -1381,16 +1403,28 @@ var FOXIZ_MAIN_SCRIPT = (function (Module) {
       wrapper.innerHTML = '';
       wrapper.appendChild(iframe);
       wrapper.dataset.embedLoaded = 'true';
+      if (facade) {
+        facade.dataset.embedLoaded = 'true';
+      }
+      if (wrapper.classList.contains('has-yt-facade')) {
+        wrapper.classList.remove('has-yt-facade');
+      }
+      wrapper.classList.add('yt-embed-loaded');
+      const figure = safeClosest(wrapper, '.wp-block-embed.wp-block-embed-youtube');
+      if (figure && figure.classList.contains('has-yt-facade')) {
+        figure.classList.remove('has-yt-facade');
+      }
     };
 
     facades.forEach((node) => {
-      const target = node.classList.contains('yt-facade') ? node : node.querySelector('.yt-facade');
-      const wrapper = node.classList.contains('yt-facade') ? node : node;
+      const isFacadeEl = node.classList.contains('yt-facade');
+      const target = isFacadeEl ? node : node.querySelector('.yt-facade');
+      const wrapper = isFacadeEl ? node.parentElement || node : node;
       if (!target) return;
       const handler = (ev) => {
         ev.preventDefault();
         const dataset = target.dataset;
-        activate(wrapper, {
+        activate(wrapper, target, {
           videoId: dataset.videoId,
           embed: dataset.embed,
           params: dataset.params,
@@ -1466,7 +1500,7 @@ var FOXIZ_MAIN_SCRIPT = (function (Module) {
   };
 
   return Module;
-}(win.FOXIZ_MAIN_SCRIPT || {}));
+}(window.FOXIZ_MAIN_SCRIPT || {}));
 
 /* Boot */
 document.addEventListener('DOMContentLoaded', function () {
