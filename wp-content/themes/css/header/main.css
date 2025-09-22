@@ -4,11 +4,6 @@
  * without loading the rest of the WordPress stylesheet bundle.
  */
 
-
-@layer tokens, base, components, utilities;
-
-@layer tokens {
-
 @font-face {
   font-family: 'ruby-icon';
   font-display: swap;
@@ -89,13 +84,7 @@
   --subnav-bg: #191c20;
   --subnav-bg-from: #191c20;
   --subnav-bg-to: #191c20;
-  
-
 }
-  
-  }
-
-@layer base {
 
 body:not([data-theme='dark']) [data-mode='dark'],
 body[data-theme='dark'] [data-mode='default'],
@@ -227,26 +216,6 @@ input {
   -webkit-appearance: button;
 }
 
-
-.screen-reader-text {
-  position: absolute;
-  width: 1px;
-  height: 1px;
-  padding: 0;
-  margin: -1px;
-  overflow: hidden;
-  clip: rect(0, 0, 0, 0);
-  clip-path: inset(50%);
-  border: 0;
-  white-space: nowrap;
-}
-
-}
-
-@layer utilities {
-
-
-
 .edge-padding {
   padding-right: 20px;
   padding-left: 20px;
@@ -258,9 +227,6 @@ input {
   max-width: var(--rb-width, 1280px);
   margin: 0 auto;
 }
-
-@layer components {
-
 
 /* Privacy banner ----------------------------------------------------- */
 .privacy-bar {
@@ -1468,7 +1434,4 @@ input {
   .collapse-template .entry-title {
     font-size: clamp(1rem, 0.95rem + 0.4vw, 1.2rem);
   }
-}
-
-}
 }
