@@ -1366,3 +1366,109 @@ body {
     transform: rotate(360deg);
   }
 }
+
+
+
+/* DOM optimization helpers */
+.entry-content img.wp-block-image,
+.entry-content img.size-full,
+.entry-content img.size-large {
+  display: block;
+  width: 100%;
+  height: auto;
+  margin: 1.5em 0;
+  border-radius: var(--round-5, 12px);
+}
+
+.entry-content video.wp-block-video {
+  display: block;
+  width: 100%;
+  height: auto;
+  margin: 1.5em 0;
+  border-radius: var(--round-5, 12px);
+}
+
+.entry-content iframe.wp-block-embed,
+.entry-content iframe.is-provider-youtube {
+  display: block;
+  width: 100%;
+  max-width: 100%;
+  aspect-ratio: 16 / 9;
+  border: 0;
+  margin: 1.5em 0;
+  border-radius: var(--round-5, 12px);
+}
+
+.entry-content .wp-block-gallery.optimized-gallery {
+  display: grid;
+  gap: 1.25rem;
+  grid-template-columns: repeat(auto-fit, minmax(220px, 1fr));
+  margin: 1.75em 0;
+}
+
+.entry-content .wp-block-gallery.optimized-gallery > img {
+  width: 100%;
+  height: auto;
+  display: block;
+  border-radius: var(--round-5, 12px);
+}
+
+.comment-toggle-btn,
+.share-toggle-btn {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  gap: 0.5rem;
+  padding: 0.75rem 1.25rem;
+  margin-top: 1rem;
+  width: 100%;
+  border-radius: var(--round-5, 12px);
+  border: 1px solid var(--flex-gray-6, #d1d5db);
+  background: var(--solid-white, #fff);
+  color: var(--body-fcolor, #04102f);
+  font-weight: 600;
+  cursor: pointer;
+  transition: background-color 0.2s ease, color 0.2s ease;
+}
+
+.comment-toggle-btn:hover,
+.share-toggle-btn:hover {
+  background: var(--g-color-90, rgba(130, 36, 227, 0.9));
+  color: #fff;
+}
+
+.comment-toggle-btn:focus-visible,
+.share-toggle-btn:focus-visible {
+  outline: 2px solid var(--g-color, #8224e3);
+  outline-offset: 2px;
+}
+
+.smeta-extra .share-toggle-btn {
+  margin-top: 0.75rem;
+}
+
+.ad-wrap[data-lazy-ad='pending'] {
+  position: relative;
+}
+
+.ad-wrap[data-lazy-ad='pending']::before {
+  content: 'Advertisement';
+  display: block;
+  font-size: 0.75rem;
+  letter-spacing: 0.08em;
+  text-transform: uppercase;
+  color: var(--meta-fcolor, #666666);
+  margin-bottom: 0.5rem;
+}
+
+.ad-wrap[data-lazy-ad='loaded']::before {
+  content: none;
+}
+
+@media (min-width: 1025px) {
+  .header-wrap .font-resizer,
+  .navbar-right .font-resizer,
+  .navbar-center .font-resizer {
+    display: none !important;
+  }
+}
