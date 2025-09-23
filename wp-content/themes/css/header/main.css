@@ -4,7 +4,7 @@
  * without loading the rest of the WordPress stylesheet bundle.
  */
 
-
+@import url('./shared/ruby-icon.css');
 
 :root {
   --g-color: #ff184e;
@@ -144,78 +144,12 @@ a:focus {
   color: var(--g-color);
 }
 
-/* Icon font helpers ------------------------------------------------- */
-@font-face {
-  font-family: 'ruby-icon';
-  font-style: normal;
-  font-weight: 400;
-  font-display: swap;
-  src: url('https://aistudynow.com/wp-content/themes/foxiz/assets/fonts/icons.woff2?ver=2.5.0') format('woff2');
-}
 
-.rbi {
-  font-family: 'ruby-icon' !important;
-  font-weight: normal;
-  font-style: normal;
-  font-variant: normal;
-  text-transform: none;
-  line-height: 1;
-  -webkit-font-smoothing: antialiased;
-  -moz-osx-font-smoothing: grayscale;
-}
 
-.rbi::before {
-  display: inline-block;
-  speak: none;
-}
 
-.rbi-next::before {
-  content: '\e958';
-}
 
-.rbi-notification::before {
-  content: '\e95a';
-}
 
-.rbi-cright::before {
-  content: '\e902';
-}
-
-.rbi-facebook::before {
-  content: '\e915';
-}
-
-.rbi-share::before {
-  content: '\e94e';
-}
-
-.rbi-twitter::before {
-  content: '\e988';
-}
-
-.rbi-linkedin::before {
-  content: '\e91f';
-}
-
-.rbi-reddit::before {
-  content: '\e928';
-}
-
-.rbi-youtube::before {
-  content: '\e93e';
-}
-
-.rbi-link-o::before {
-  content: '\e9cb';
-}
-
-.rbi-more::before {
-  content: '\e987';
-}
-
-.rbi-user::before {
-  content: '\e99e';
-}
+/* Icon font helpers are defined in shared/ruby-icon.css ----------------- */
 
 img {
   display: block;
@@ -242,6 +176,8 @@ input {
   padding-right: 20px;
   padding-left: 20px;
 }
+
+
 
 .rb-container {
   position: static;
