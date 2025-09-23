@@ -1,0 +1,26 @@
+ * Ensures the font is always available before any glyph classes run.
+ */
+@font-face {
+  font-family: 'ruby-icon';
+  font-style: normal;
+  font-weight: 400;
+  font-display: swap;
+  src: url('../../../../fonts/ruby-icons.woff2') format('woff2'),
+       url('https://aistudynow.com/wp-content/themes/foxiz/assets/fonts/icons.woff2?ver=2.5.0') format('woff2');
+}
+
+.rbi {
+  font-family: 'ruby-icon' !important;
+  font-weight: normal;
+  font-style: normal;
+  font-variant: normal;
+  text-transform: none;
+  line-height: 1;
+  -webkit-font-smoothing: antialiased;
+  -moz-osx-font-smoothing: grayscale;
+}
+
+.rbi::before {
+  display: inline-block;
+  speak: none;
+}

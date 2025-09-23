@@ -1375,7 +1375,7 @@ function wd4_enqueue_styles(): void {
     $is_account = function_exists( 'is_account_page' ) && is_account_page();
 
     if ( is_front_page() || is_home() ) {
-        wp_enqueue_style( 'main',    'https://aistudynow.com/wp-content/themes/css/header/main.css',   array(), '00565677766876655777999980.0' );
+        wp_enqueue_style( 'main',    'https://aistudynow.com/wp-content/themes/css/header/main.css',   array(), '1100565677766876655777999980.0' );
         
         wp_enqueue_style( 'slider',  'https://aistudynow.com/wp-content/themes/css/header/slider.css', array(), '6678576655777999980.0' );
         wp_enqueue_style( 'social',  'https://aistudynow.com/wp-content/themes/css/header/social.css', array(), '667876655777999980.0' );
@@ -1388,15 +1388,15 @@ function wd4_enqueue_styles(): void {
     }
 
     if ( is_category() ) {
-        wp_enqueue_style( 'main',      'https://aistudynow.com/wp-content/themes/css/header/main.css',      array(), '7667876655777999980.0' );
-        wp_enqueue_style( 'catheader', 'https://aistudynow.com/wp-content/themes/css/header/catheader.css', array(), '667876655777999980.0' );
+        wp_enqueue_style( 'main',      'https://aistudynow.com/wp-content/themes/css/header/main.css',      array(), '1117667876655777999980.0' );
+        wp_enqueue_style( 'catheader', 'https://aistudynow.com/wp-content/themes/css/header/catheader.css', array(), '1661667876655777999980.0' );
         wp_enqueue_style( 'grid',      'https://aistudynow.com/wp-content/themes/css/header/grid.css',      array(), '667876655777999980.0' );
         wp_enqueue_style( 'footer',    'https://aistudynow.com/wp-content/themes/css/header/footer.css',    array(), '667876655777999980.0' );
     }
 
     if ( is_singular( 'post' ) ) {
         wp_enqueue_style( 'main',        'https://aistudynow.com/wp-content/themes/css/header/main.css',               array(), '09999880.0' );
-        wp_enqueue_style( 'single',      'https://aistudynow.com/wp-content/themes/css/header/single/single.css',      array(), '07999980.0' );
+        wp_enqueue_style( 'single',      'https://aistudynow.com/wp-content/themes/css/header/single/single.css',      array(), '107999980.0' );
 
         wp_enqueue_style( 'sidebar',     'https://aistudynow.com/wp-content/themes/css/header/single/sidebar.css',     array(), '667876655777999980.0' );
         wp_enqueue_style( 'email',       'https://aistudynow.com/wp-content/themes/css/header/single/email.css',       array(), '667876655777999980.0' );
