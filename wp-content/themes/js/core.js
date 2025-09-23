@@ -314,6 +314,16 @@ var FOXIZ_CORE_SCRIPT = (function (Module) {
       var submitBtn = form.querySelector('input[type="submit"]');
       var noticeText = form.querySelector('.notice-text');
 
+      var emailInput = form.querySelector('input[name="EMAIL"]');
+
+      if (emailInput) {
+        var currentAutocomplete = emailInput.getAttribute('autocomplete');
+        if (!currentAutocomplete || currentAutocomplete.toLowerCase() === 'off') {
+          emailInput.setAttribute('autocomplete', 'email');
+        }
+      }
+
+
       if (acceptTerms && submitBtn) {
         on(acceptTerms, 'change', function () {
           submitBtn.disabled = !this.checked;
