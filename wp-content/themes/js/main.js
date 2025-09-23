@@ -653,12 +653,37 @@ const nativeDocumentWrite = document.write;
     Module.reloadBlockFunc = function () { /* no-op */ };
   }
 
+
+
+/* ===========================
+   * MASTER INIT (NO PAGINATION)
+   * =========================== */
+  Module.ensureSearchAutocomplete = function () {
+    const selectors = [
+      '#wpadminbar form#adminbarsearch input.adminbar-input',
+      'form.rb-search-form.live-search-form input.field[name="s"]',
+      'form.rb-search-form input.field[name="s"]'
+    ];
+    const seen = [];
+    selectors.forEach((selector) => {
+      $$(selector).forEach((input) => {
+        if (!input || input.tagName !== 'INPUT' || seen.indexOf(input) !== -1) return;
+        if (input.getAttribute('autocomplete') !== 'search') {
+          input.setAttribute('autocomplete', 'search');
+        }
+        seen.push(input);
+      });
+    });
+  };
+  
+
   /* ===========================
    * MASTER INIT (NO PAGINATION)
    * =========================== */
   Module.init = function () {
     this.tocToggle();
     this.initParams();
+    this.ensureSearchAutocomplete();
     this.fontResizer();
     this.hoverTipsy();
     this.hoverEffects();
