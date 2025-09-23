@@ -4,13 +4,7 @@
  * without loading the rest of the WordPress stylesheet bundle.
  */
 
-@font-face {
-  font-family: 'ruby-icon';
-  font-display: swap;
-  src: url('https://aistudynow.com/wp-content/themes/foxiz/assets/fonts/icons.woff2?ver=2.5.0') format('woff2');
-  font-weight: normal;
-  font-style: normal;
-}
+
 
 :root {
   --g-color: #ff184e;
@@ -151,6 +145,14 @@ a:focus {
 }
 
 /* Icon font helpers ------------------------------------------------- */
+@font-face {
+  font-family: 'ruby-icon';
+  font-style: normal;
+  font-weight: 400;
+  font-display: swap;
+  src: url('https://aistudynow.com/wp-content/themes/foxiz/assets/fonts/icons.woff2?ver=2.5.0') format('woff2');
+}
+
 .rbi {
   font-family: 'ruby-icon' !important;
   font-weight: normal;
@@ -183,12 +185,32 @@ a:focus {
   content: '\e915';
 }
 
+.rbi-share::before {
+  content: '\e94e';
+}
+
 .rbi-twitter::before {
   content: '\e988';
 }
 
+.rbi-linkedin::before {
+  content: '\e91f';
+}
+
+.rbi-reddit::before {
+  content: '\e928';
+}
+
 .rbi-youtube::before {
   content: '\e93e';
+}
+
+.rbi-link-o::before {
+  content: '\e9cb';
+}
+
+.rbi-more::before {
+  content: '\e987';
 }
 
 .rbi-user::before {
