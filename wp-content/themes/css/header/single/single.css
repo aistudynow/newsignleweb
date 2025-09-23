@@ -5,14 +5,7 @@
  * original presentation without leaking across the standalone demo.
  */
 
-@font-face {
-  font-family: 'ruby-icon';
-  font-style: normal;
-  font-weight: 400;
-  font-display: swap;
-  src: url('https://aistudynow.com/wp-content/themes/foxiz/assets/fonts/icons.woff2?ver=2.5.0')
-    format('woff2');
-}
+@import url('../shared/ruby-icon.css');
 
 
 html,
