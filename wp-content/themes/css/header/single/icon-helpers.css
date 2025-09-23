@@ -5,6 +5,15 @@
     --wd4-icon-size: 1em;
 }
 
+@font-face {
+    font-family: 'ruby-icon';
+    font-style: normal;
+    font-weight: 400;
+    font-display: swap;
+    src: url('https://aistudynow.com/wp-content/themes/foxiz/assets/fonts/icons.woff2?ver=2.5.0') format('woff2');
+}
+
+.rbi,
 .ruby-icon,
 [class^="ruby-icon-"],
 [class*=" ruby-icon-"] {
@@ -22,6 +31,7 @@
     speak: never;
 }
 
+.rbi::before,
 .ruby-icon::before,
 [class^="ruby-icon-"]::before,
 [class*=" ruby-icon-"]::before {
@@ -31,11 +41,38 @@
     line-height: inherit;
 }
 
+.rbi[data-icon]::before,
 .ruby-icon[data-icon]::before {
     content: attr(data-icon);
 }
 
+.rbi,
 .ruby-icon {
     min-width: var(--wd4-icon-size);
     min-height: var(--wd4-icon-size);
+}
+
+.rbi-share::before,
+.ruby-icon-share::before {
+    content: '\e94e';
+}
+
+.rbi-linkedin::before,
+.ruby-icon-linkedin::before {
+    content: '\e91f';
+}
+
+.rbi-reddit::before,
+.ruby-icon-reddit::before {
+    content: '\e928';
+}
+
+.rbi-link-o::before,
+.ruby-icon-link-o::before {
+    content: '\e9cb';
+}
+
+.rbi-more::before,
+.ruby-icon-more::before {
+    content: '\e987';
 }
